@@ -1,49 +1,100 @@
-#' Tabela com totais e intervalos de confiança para variável da PNS
+#' Calcula totais por variável, com ou sem domínio
 #'
-#' Calcula os totais, coeficientes de variação e intervalos de confiança para a primeira variável indicada,
-#' usando o desenho amostral da PNS 2019.
+#' Esta função calcula totais, intervalo de confiança e coeficiente de variação
+#' para uma variável específica, com possibilidade de filtro e desagregação por domínio.
 #'
-#' @param variaveis Vetor com nomes das variáveis da PNS a serem carregadas. A primeira será usada na tabulação.
+#' @param variaveis Vetor de variáveis (apenas a primeira será usada).
+#' @param filtro Expressão lógica para filtrar os dados (ex: idade >= 18).
+#' @param dominio Define o domínio para desagregação: "nenhum", "UF" ou "V0026".
 #'
-#' @return Um data frame com colunas: Categoria, Total, Coeficiente_de_Variacao, Intervalo_inferior, Intervalo_superior.
-#'
-#' @import survey
-#' @importFrom PNSIBGE get_pns
-#' @importFrom survey svytotal svymean svyby cv svydesign
-#' @importFrom stats reformulate confint
+#' @return Um data.frame com totais, intervalos de confiança e coeficientes de variação.
+#' @importFrom survey svytotal confint cv
 #' @importFrom dplyr left_join
-#' @importFrom tidyr pivot_wider
+#' @importFrom rlang enquo quo_is_null eval_tidy
+#' @importFrom stats reformulate as.formula
 #' @export
-#'
-tabela_totais <- function(variaveis = c()) {
+tabela_totais <- function(variaveis = c(), filtro = NULL, dominio = c("nenhum", "UF", "V0026")) {
+  dominio <- match.arg(dominio)
+  filtro_expr <- enquo(filtro)
 
-  vars_base <- c("C006", "VDF002", "VDF003", "V0001", "V0026", "D001")
-  vars <- c(variaveis, vars_base)
+  if (!quo_is_null(filtro_expr)) {
+    dados_filtrados <- subset(dados_pns_design, eval_tidy(filtro_expr, data = dados_pns_design$variables))
+  } else {
+    dados_filtrados <- dados_pns_design
+  }
 
-  dados_pns_design <- get_pns(year = 2019, labels = TRUE, vars = vars, design = TRUE)
+  var <- variaveis[1]
 
-  total_var1 <- svytotal(as.formula(paste("~", vars[1])), design = dados_pns_design, na.rm = TRUE)
-  cv_total_var1 <- cv(object = total_var1)
-  intervalo_total_var1 <- confint(total_var1)
+  if (dominio == "nenhum") {
+    total_var <- svytotal(as.formula(paste0("~", var)), design = dados_filtrados, na.rm = TRUE)
+    total_df <- as.data.frame(total_var)
+    cv_df <- as.data.frame(cv(total_var))
+    intervalo_df <- as.data.frame(confint(total_var))
 
-  intervalo_total_var1 <- as.data.frame(intervalo_total_var1)
-  rownames(intervalo_total_var1) <- gsub(vars[1], "", rownames(intervalo_total_var1))
+    limpar_nomes <- function(df) {
+      rownames(df) <- gsub(var, "", rownames(df))
+      df
+    }
 
-  total_var1 <- as.data.frame(total_var1)
-  rownames(total_var1) <- gsub(vars[1], "", rownames(total_var1))
+    total_df <- limpar_nomes(total_df)
+    cv_df <- limpar_nomes(cv_df)
+    intervalo_df <- limpar_nomes(intervalo_df)
 
-  cv_total_var1 <- as.data.frame(cv_total_var1)
-  rownames(cv_total_var1) <- gsub(vars[1], "", rownames(cv_total_var1))
+    tabela <- data.frame(
+      Categoria = rownames(total_df),
+      Total = total_df[, 1],
+      Coeficiente_de_Variacao = cv_df[, 1],
+      Intervalo_inferior = intervalo_df[, 1],
+      Intervalo_superior = intervalo_df[, 2]
+    )
 
-  n <- length(total_var1)
+    tabela <- tabela[tabela$Categoria != "Ignorado" & tabela$Total != 0, ]
+    return(tabela)
+  }
 
-  tabela_var1 <- data.frame(
-    Categoria = rownames(total_var1),
-    Total = c(total_var1[1:n, 1]),
-    Coeficiente_de_Variacao = c(cv_total_var1[1:n, 1]),
-    Intervalo_inferior = c(intervalo_total_var1[1:n, 1]),
-    Intervalo_superior = c(intervalo_total_var1[1:n, 2])
-  )
+  dominio_var <- ifelse(dominio == "UF", "V0001", "V0026")
+  formula_inter <- reformulate(paste0("interaction(", dominio_var, ",", var, ")"))
 
-  return(tabela_var1)
+  total_dom <- svytotal(formula_inter, design = dados_filtrados, na.rm = TRUE)
+  intervalo_dom <- confint(total_dom)
+  cv_dom <- cv(total_dom)
+
+  total_dom_df <- as.data.frame(total_dom)
+  intervalo_dom_df <- as.data.frame(intervalo_dom)
+  cv_dom_df <- as.data.frame(cv_dom)
+
+  limpar_rownames_inter <- function(nome_df) {
+    nomes <- rownames(nome_df)
+    nomes_limpos <- sub(".*\\)", "", nomes)
+    partes <- strsplit(nomes_limpos, "\\.")
+
+    partes_validas <- sapply(partes, length) == 2
+    partes <- partes[partes_validas]
+
+    df_limpo <- nome_df[partes_validas, , drop = FALSE]
+    partes_mat <- do.call(rbind, partes)
+
+    df_limpo$dominio <- partes_mat[, 1]
+    df_limpo$categoria <- partes_mat[, 2]
+
+    rownames(df_limpo) <- NULL
+    df_limpo <- df_limpo[df_limpo$categoria != "Ignorado", , drop = FALSE]
+    df_limpo
+  }
+
+  total_df <- limpar_rownames_inter(total_dom_df)
+  intervalo_df <- limpar_rownames_inter(intervalo_dom_df)
+  cv_df <- limpar_rownames_inter(cv_dom_df)
+
+  colnames(total_df)[1] <- "total"
+  colnames(intervalo_df)[1:2] <- c("limite_inferior", "limite_superior")
+  colnames(cv_df)[1] <- "cv"
+
+  tabela_final <- total_df %>%
+    left_join(intervalo_df, by = c("dominio", "categoria")) %>%
+    left_join(cv_df, by = c("dominio", "categoria"))
+
+  colnames(tabela_final)[colnames(tabela_final) == "dominio"] <- dominio
+  tabela_final <- tabela_final[tabela_final$total != 0, ]
+  return(tabela_final)
 }
