@@ -2,17 +2,25 @@
 % Please edit documentation in R/tabela_totais.R
 \name{tabela_totais}
 \alias{tabela_totais}
-\title{Tabela com totais e intervalos de confiança para variável da PNS}
+\title{Calcula totais por variável, com ou sem domínio}
 \usage{
-tabela_totais(variaveis = c())
+tabela_totais(
+  variaveis = c(),
+  filtro = NULL,
+  dominio = c("nenhum", "UF", "V0026")
+)
 }
 \arguments{
-\item{variaveis}{Vetor com nomes das variáveis da PNS a serem carregadas. A primeira será usada na tabulação.}
+\item{variaveis}{Vetor de variáveis (apenas a primeira será usada).}
+
+\item{filtro}{Expressão lógica para filtrar os dados (ex: idade >= 18).}
+
+\item{dominio}{Define o domínio para desagregação: "nenhum", "UF" ou "V0026".}
 }
 \value{
-Um data frame com colunas: Categoria, Total, Coeficiente_de_Variacao, Intervalo_inferior, Intervalo_superior.
+Um data.frame com totais, intervalos de confiança e coeficientes de variação.
 }
 \description{
-Calcula os totais, coeficientes de variação e intervalos de confiança para a primeira variável indicada,
-usando o desenho amostral da PNS 2019.
+Esta função calcula totais, intervalo de confiança e coeficiente de variação
+para uma variável específica, com possibilidade de filtro e desagregação por domínio.
 }
