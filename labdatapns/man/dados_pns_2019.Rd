@@ -2,20 +2,20 @@
 % Please edit documentation in R/dados_pns_2019.R
 \name{dados_pns_2019}
 \alias{dados_pns_2019}
-\title{Carrega dados da PNS 2019 no ambiente global}
+\title{Carrega os dados da PNS 2019 com desenho amostral}
 \usage{
-dados_pns_2019(vars = c())
+dados_pns_2019(vars = c(), global = TRUE)
 }
 \arguments{
-\item{vars}{Vetor de nomes de variáveis adicionais a serem incluídas.}
+\item{vars}{Vetor de nomes de variáveis adicionais a serem carregadas.}
+
+\item{global}{Se TRUE (padrão), os objetos são atribuídos no ambiente global.}
 }
 \value{
-Nenhum valor é retornado. Objetos são salvos no ambiente global.
+Atribui \code{dados_pns_design} e \code{vars} ao ambiente global (ou retorna em lista, se \code{global = FALSE}).
 }
 \description{
-Esta função carrega os dados da PNS 2019 com as variáveis solicitadas
-e algumas variáveis fixas obrigatórias para o design da amostra.
-}
-\details{
-Os objetos \code{dados_pns_design} e \code{vars} são salvos no ambiente global.
+Esta função baixa e prepara os dados da PNS 2019 com as variáveis solicitadas
+e o desenho amostral (survey design). Algumas variáveis obrigatórias para o design
+são sempre incluídas automaticamente.
 }
