@@ -21,7 +21,7 @@ tabela <- function(variaveis = c(),
   dados_base <- dados_pns_design
 
   if (!rlang::quo_is_null(filtro_expr)) {
-    dados_filtrados <- survey::subset(dados_base, rlang::eval_tidy(filtro_expr, data = dados_base$variables))
+    dados_filtrados <- subset(dados_base, rlang::eval_tidy(filtro_expr, data = dados_base$variables))
   } else {
     dados_filtrados <- dados_base
   }
@@ -39,7 +39,7 @@ tabela <- function(variaveis = c(),
 
   executar_estima <- function(filtro_extra = NULL) {
     dados_sub <- if (!is.null(filtro_extra)) {
-      survey::subset(dados_filtrados, eval(filtro_extra, envir = dados_filtrados$variables))
+      subset(dados_filtrados, eval(filtro_extra, envir = dados_filtrados$variables))
     } else dados_filtrados
 
     if (metrica == "media" && is_continua && (dominio != "nenhum" || !is.null(agrupar_por))) {
@@ -70,7 +70,7 @@ tabela <- function(variaveis = c(),
         condicoes <- mapply(function(v, val) rlang::expr(!!rlang::sym(v) == !!val),
                             names(comb), comb, SIMPLIFY = FALSE)
         filtro_completo <- Reduce(function(x, y) rlang::expr((!!x) & (!!y)), condicoes)
-        dados_combinado <- survey::subset(dados_sub, eval(filtro_completo, envir = dados_sub$variables))
+        dados_combinado <- subset(dados_sub, eval(filtro_completo, envir = dados_sub$variables))
 
         if (nrow(dados_combinado$variables) == 0) return(NULL)
 
