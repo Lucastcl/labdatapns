@@ -1,12 +1,18 @@
-#' Geração de tabela com estimativas da PNS
+#' Gera tabela a partir do desenho amostral da PNS
 #'
-#' @param variaveis Vetor de variáveis de interesse.
-#' @param filtro Expressão lógica para filtragem dos dados.
-#' @param dominio Agrupamento adicional ("nenhum", "UF", ou "V0026").
+#' Esta função calcula totais, médias ou proporções de variáveis da PNS,
+#' com opção de filtragem, domínio e agrupamento.
+#'
+#' @param variaveis Vetor com o nome da variável a ser analisada (usar apenas uma por vez).
+#' @param filtro Expressão lógica para filtrar os dados.
+#' @param dominio Domínio para desagregação: "nenhum", "UF" ou "V0026".
 #' @param metrica Tipo de métrica: "total", "media" ou "prop".
-#' @param agrupar_por Variáveis adicionais para cruzamento.
+#' @param agrupar_por Vetor de variáveis para desagregação adicional (ex: sexo, idade).
 #'
-#' @return Um data.frame com estimativas, erro amostral e intervalo de confiança.
+#' @return Um data frame com os resultados da estimativa, intervalo de confiança e coeficiente de variação.
+#' @importFrom rlang enquo quo_is_null eval_tidy parse_expr
+#' @importFrom survey svytotal svymean cv confint
+#' @importFrom dplyr left_join bind_rows
 #' @export
 tabela <- function(variaveis = c(),
                    filtro = NULL,
@@ -18,147 +24,130 @@ tabela <- function(variaveis = c(),
   metrica <- match.arg(metrica)
   filtro_expr <- rlang::enquo(filtro)
 
-  dados_base <- dados_pns_design
-
   if (!rlang::quo_is_null(filtro_expr)) {
-    dados_filtrados <- subset(dados_base, rlang::eval_tidy(filtro_expr, data = dados_base$variables))
+    dados_filtrados <- subset(dados_pns_design, rlang::eval_tidy(filtro_expr, data = dados_pns_design$variables))
   } else {
-    dados_filtrados <- dados_base
+    dados_filtrados <- dados_pns_design
   }
 
   var <- variaveis[1]
-  classe_var <- class(dados_base$variables[[var]])
+  classe_var <- class(dados_pns_design$variables[[var]])
   is_continua <- any(classe_var %in% c("numeric", "integer", "double"))
 
   estimador <- switch(
     metrica,
-    total = function(x, design) survey::svytotal(x, design = design, na.rm = TRUE),
-    media = function(x, design) survey::svymean(x, design = design, na.rm = TRUE),
-    prop  = function(x, design) survey::svymean(x, design = design, na.rm = TRUE)
+    total = function(x, design) svytotal(x, design = design, na.rm = TRUE),
+    media = function(x, design) svymean(x, design = design, na.rm = TRUE),
+    prop  = function(x, design) svymean(x, design = design, na.rm = TRUE)
   )
 
   executar_estima <- function(filtro_extra = NULL) {
     dados_sub <- if (!is.null(filtro_extra)) {
-      subset(dados_filtrados, eval(filtro_extra, envir = dados_filtrados$variables))
+      subset(dados_filtrados, eval(rlang::parse_expr(filtro_extra), envir = dados_filtrados$variables))
     } else dados_filtrados
 
-    if (metrica == "media" && is_continua && (dominio != "nenhum" || !is.null(agrupar_por))) {
-      dominio_var <- if (dominio == "UF") "V0001" else if (dominio == "V0026") "V0026" else NULL
-      by_vars <- c(agrupar_por, dominio_var)
-      by_vars <- by_vars[!is.null(by_vars)]
+    if (dominio == "nenhum") {
+      formula_est <- as.formula(paste0("~", var))
+      est <- estimador(formula_est, dados_sub)
+      intervalo <- confint(est)
+      cv_valores <- cv(est)
 
-      if (length(by_vars) == 0) {
-        est <- survey::svymean(as.formula(paste0("~", var)), dados_sub, na.rm = TRUE)
-        intervalo <- stats::confint(est)
-        cv_valores <- survey::cv(est)
-        return(data.frame(
-          categoria = "media",
-          metrica = as.numeric(est),
-          cv = as.vector(cv_valores),
-          ic_inferior = intervalo[, 1],
-          ic_superior = intervalo[, 2]
-        ))
+      categorias <- rownames(est)
+      if (is.null(categorias) || any(nchar(categorias) == 0)) {
+        categorias <- names(est)
       }
 
-      combinacoes <- expand.grid(
-        lapply(by_vars, function(v) unique(na.omit(dados_base$variables[[v]]))),
-        stringsAsFactors = FALSE
-      )
-      names(combinacoes) <- by_vars
-
-      resultados_lista <- apply(combinacoes, 1, function(comb) {
-        condicoes <- mapply(function(v, val) rlang::expr(!!rlang::sym(v) == !!val),
-                            names(comb), comb, SIMPLIFY = FALSE)
-        filtro_completo <- Reduce(function(x, y) rlang::expr((!!x) & (!!y)), condicoes)
-        dados_combinado <- subset(dados_sub, eval(filtro_completo, envir = dados_sub$variables))
-
-        if (nrow(dados_combinado$variables) == 0) return(NULL)
-
-        est <- survey::svymean(as.formula(paste0("~", var)), dados_combinado, na.rm = TRUE)
-        intervalo <- stats::confint(est)
-        cv_valores <- survey::cv(est)
-        resultado <- data.frame(
-          metrica = as.numeric(est),
-          cv = as.vector(cv_valores),
-          ic_inferior = intervalo[, 1],
-          ic_superior = intervalo[, 2],
-          categoria = "media",
-          stringsAsFactors = FALSE
-        )
-        for (v in names(comb)) {
-          resultado[[v]] <- comb[[v]]
-        }
-        return(resultado)
-      })
-      return(dplyr::bind_rows(resultados_lista))
-    }
-
-    if (dominio == "nenhum") {
-      est <- estimador(as.formula(paste0("~", var)), dados_sub)
-      intervalo <- stats::confint(est)
-      cv_valores <- survey::cv(est)
-      categoria_val <- if (metrica == "media") "media" else rownames(est)
+      categorias <- gsub(paste0("^", var), "", categorias)
 
       resultado <- data.frame(
-        categoria = categoria_val,
+        categoria = categorias,
         metrica = as.numeric(est),
         cv = as.vector(cv_valores),
         ic_inferior = intervalo[, 1],
-        ic_superior = intervalo[, 2]
+        ic_superior = intervalo[, 2],
+        stringsAsFactors = FALSE
       )
-      return(resultado[resultado$metrica != 0 & resultado$categoria != "Ignorado", ])
-    } else {
-      dominio_var <- if (dominio == "UF") "V0001" else "V0026"
-      formula_inter <- reformulate(paste0("interaction(", dominio_var, ",", var, ")"))
-      est <- estimador(formula_inter, dados_sub)
-      intervalo <- stats::confint(est)
-      cv_res <- survey::cv(est)
-
-      limpar_rownames_inter <- function(nome_df) {
-        nomes <- rownames(nome_df)
-        nomes_limpos <- sub(".*\\)", "", nomes)
-        partes <- strsplit(nomes_limpos, "\\.")
-        partes_validas <- sapply(partes, length) == 2
-        partes <- partes[partes_validas]
-        df_limpo <- nome_df[partes_validas, , drop = FALSE]
-        partes_mat <- do.call(rbind, partes)
-        df_limpo$dominio <- partes_mat[, 1]
-        df_limpo$categoria <- partes_mat[, 2]
-        rownames(df_limpo) <- NULL
-        df_limpo
-      }
-
-      est_df <- limpar_rownames_inter(as.data.frame(est))
-      intervalo_df <- limpar_rownames_inter(as.data.frame(intervalo))
-      cv_df <- limpar_rownames_inter(as.data.frame(cv_res))
-
-      colnames(est_df)[1] <- "metrica"
-      colnames(intervalo_df)[1:2] <- c("ic_inferior", "ic_superior")
-      colnames(cv_df)[1] <- "cv"
-
-      resultado <- est_df %>%
-        dplyr::left_join(intervalo_df, by = c("dominio", "categoria")) %>%
-        dplyr::left_join(cv_df, by = c("dominio", "categoria"))
 
       resultado <- resultado[resultado$metrica != 0 & resultado$categoria != "Ignorado", ]
       rownames(resultado) <- NULL
       return(resultado)
     }
+
+    if (metrica == "media" && is_continua) {
+      dominio_var <- ifelse(dominio == "UF", "V0001", "V0026")
+      dominios <- unique(na.omit(dados_sub$variables[[dominio_var]]))
+
+      resultados <- lapply(dominios, function(dom) {
+        valor_expr <- if (is.character(dom)) paste0("\"", dom, "\"") else dom
+        filtro_dom <- paste0(dominio_var, " == ", valor_expr)
+        dados_dom <- subset(dados_sub, eval(rlang::parse_expr(filtro_dom), envir = dados_sub$variables))
+        est <- svymean(as.formula(paste0("~", var)), dados_dom, na.rm = TRUE)
+        intervalo <- confint(est)
+        cv_valores <- cv(est)
+        data.frame(dominio = dom, categoria = "media", metrica = as.numeric(est),
+                   cv = as.vector(cv_valores), ic_inferior = intervalo[, 1], ic_superior = intervalo[, 2])
+      })
+
+      resultado <- do.call(rbind, resultados)
+      rownames(resultado) <- NULL
+      return(resultado)
+    }
+
+    dominio_var <- ifelse(dominio == "UF", "V0001", "V0026")
+    formula_inter <- reformulate(paste0("interaction(", dominio_var, ",", var, ")"))
+    est <- estimador(formula_inter, dados_sub)
+    intervalo <- confint(est)
+    cv_res <- cv(est)
+
+    est_df <- as.data.frame(est)
+    intervalo_df <- as.data.frame(intervalo)
+    cv_df <- as.data.frame(cv_res)
+
+    limpar_rownames_inter <- function(nome_df) {
+      nomes <- rownames(nome_df)
+      nomes_limpos <- sub(".*\\)", "", nomes)
+      partes <- strsplit(nomes_limpos, "\\.")
+      partes_validas <- sapply(partes, length) == 2
+      partes <- partes[partes_validas]
+      df_limpo <- nome_df[partes_validas, , drop = FALSE]
+      partes_mat <- do.call(rbind, partes)
+      df_limpo$dominio <- partes_mat[, 1]
+      df_limpo$categoria <- gsub(paste0("^", var), "", partes_mat[, 2])
+      rownames(df_limpo) <- NULL
+      df_limpo
+    }
+
+    est_df <- limpar_rownames_inter(est_df)
+    intervalo_df <- limpar_rownames_inter(intervalo_df)
+    cv_df <- limpar_rownames_inter(cv_df)
+
+    colnames(est_df)[1] <- "metrica"
+    colnames(intervalo_df)[1:2] <- c("ic_inferior", "ic_superior")
+    colnames(cv_df)[1] <- "cv"
+
+    resultado <- est_df %>%
+      dplyr::left_join(intervalo_df, by = c("dominio", "categoria")) %>%
+      dplyr::left_join(cv_df, by = c("dominio", "categoria"))
+
+    resultado <- resultado[resultado$metrica != 0 & resultado$categoria != "Ignorado", ]
+    rownames(resultado) <- NULL
+    return(resultado)
   }
 
   if (is.null(agrupar_por)) {
     return(executar_estima())
   }
 
-  lista_niveis <- lapply(agrupar_por, function(v) unique(na.omit(dados_base$variables[[v]])))
+  lista_niveis <- lapply(agrupar_por, function(v) unique(na.omit(dados_pns_design$variables[[v]])))
   names(lista_niveis) <- agrupar_por
   combinacoes <- expand.grid(lista_niveis, stringsAsFactors = FALSE)
 
   resultados_lista <- apply(combinacoes, 1, function(comb) {
-    condicoes <- mapply(function(var, val) rlang::expr(!!rlang::sym(var) == !!val),
-                        names(comb), comb, SIMPLIFY = FALSE)
-    filtro_completo <- Reduce(function(x, y) rlang::expr((!!x) & (!!y)), condicoes)
-    tabela_filtrada <- executar_estima(filtro_extra = filtro_completo)
+    filtros <- mapply(function(var, val) {
+      paste0(var, " == ", if (is.character(val)) paste0("\"", val, "\"") else val)
+    }, names(comb), comb, SIMPLIFY = TRUE)
+    filtro_cat <- paste(filtros, collapse = " & ")
+    tabela_filtrada <- executar_estima(filtro_extra = filtro_cat)
     for (var in names(comb)) {
       tabela_filtrada[[var]] <- comb[[var]]
     }
@@ -167,6 +156,5 @@ tabela <- function(variaveis = c(),
 
   resultado_final <- dplyr::bind_rows(resultados_lista)
   rownames(resultado_final) <- NULL
-  resultado_final <- resultado_final[!is.na(resultado_final$metrica), ]
   return(resultado_final)
 }
