@@ -4,12 +4,21 @@
 \alias{dados_pns_2019}
 \title{Carrega os dados da PNS 2019 com desenho amostral}
 \usage{
-dados_pns_2019(vars = c(), global = TRUE)
+dados_pns_2019(
+  vars = c(),
+  global = TRUE,
+  selecionado = TRUE,
+  antropometria = TRUE
+)
 }
 \arguments{
 \item{vars}{Vetor de nomes de variáveis adicionais a serem carregadas.}
 
 \item{global}{Se TRUE (padrão), os objetos são atribuídos no ambiente global.}
+
+\item{selecionado}{Se TRUE (padrão), inclui apenas os entrevistados selecionados.}
+
+\item{antropometria}{Se TRUE (padrão), inclui variáveis de antropometria.}
 }
 \value{
 Atribui \code{dados_pns_design} e \code{vars} ao ambiente global (ou retorna em lista, se \code{global = FALSE}).
