@@ -6,10 +6,12 @@
 #'
 #' @param vars Vetor de nomes de variáveis adicionais a serem carregadas.
 #' @param global Se TRUE (padrão), os objetos são atribuídos no ambiente global.
+#' @param selecionado Se TRUE (padrão), inclui apenas os entrevistados selecionados.
+#' @param antropometria Se TRUE (padrão), inclui variáveis de antropometria.
 #'
 #' @return Atribui `dados_pns_design` e `vars` ao ambiente global (ou retorna em lista, se `global = FALSE`).
 #' @export
-dados_pns_2019 <- function(vars = c(), global = TRUE) {
+dados_pns_2019 <- function(vars = c(), global = TRUE, selecionado = TRUE, antropometria = TRUE) {
 
   options(survey.lonely.psu = "adjust")
 
@@ -23,11 +25,9 @@ dados_pns_2019 <- function(vars = c(), global = TRUE) {
     labels = TRUE,
     vars = vars,
     design = TRUE,
-    selected=TRUE,
-    anthropometry=TRUE
+    selected = selecionado,
+    anthropometry = antropometria
   )
-
-
 
   if (global) {
     assign("dados_pns_design", dados_pns_design, envir = .GlobalEnv)
