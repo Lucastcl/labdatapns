@@ -78,7 +78,7 @@ tabela <- function(variaveis = c(),
       dominios <- unique(na.omit(dados_sub$variables[[dominio_var]]))
 
       resultados <- lapply(dominios, function(dom) {
-        valor_expr <- if (is.character(dom)) paste0("\"", dom, "\"") else dom
+        valor_expr <- shQuote(as.character(dom))
         filtro_dom <- paste0(dominio_var, " == ", valor_expr)
         dados_dom <- subset(dados_sub, eval(rlang::parse_expr(filtro_dom), envir = dados_sub$variables))
         est <- svymean(as.formula(paste0("~", var)), dados_dom, na.rm = TRUE)

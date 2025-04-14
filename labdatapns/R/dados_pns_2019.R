@@ -24,6 +24,8 @@ dados_pns_2019 <- function(vars = c(), global = TRUE) {
     anthropometry=TRUE
   )
 
+  options(survey.lonely.psu = "adjust")
+
   if (global) {
     assign("dados_pns_design", dados_pns_design, envir = .GlobalEnv)
     assign("vars", vars, envir = .GlobalEnv)

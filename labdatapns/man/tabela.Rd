@@ -2,7 +2,7 @@
 % Please edit documentation in R/tabela.R
 \name{tabela}
 \alias{tabela}
-\title{Geração de tabela com estimativas da PNS}
+\title{Gera tabela a partir do desenho amostral da PNS}
 \usage{
 tabela(
   variaveis = c(),
@@ -13,19 +13,20 @@ tabela(
 )
 }
 \arguments{
-\item{variaveis}{Vetor de variáveis de interesse.}
+\item{variaveis}{Vetor com o nome da variável a ser analisada (usar apenas uma por vez).}
 
-\item{filtro}{Expressão lógica para filtragem dos dados.}
+\item{filtro}{Expressão lógica para filtrar os dados.}
 
-\item{dominio}{Agrupamento adicional ("nenhum", "UF", ou "V0026").}
+\item{dominio}{Domínio para desagregação: "nenhum", "UF" ou "V0026".}
 
 \item{metrica}{Tipo de métrica: "total", "media" ou "prop".}
 
-\item{agrupar_por}{Variáveis adicionais para cruzamento.}
+\item{agrupar_por}{Vetor de variáveis para desagregação adicional (ex: sexo, idade).}
 }
 \value{
-Um data.frame com estimativas, erro amostral e intervalo de confiança.
+Um data frame com os resultados da estimativa, intervalo de confiança e coeficiente de variação.
 }
 \description{
-Geração de tabela com estimativas da PNS
+Esta função calcula totais, médias ou proporções de variáveis da PNS,
+com opção de filtragem, domínio e agrupamento.
 }
