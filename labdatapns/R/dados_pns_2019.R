@@ -10,6 +10,9 @@
 #' @return Atribui `dados_pns_design` e `vars` ao ambiente global (ou retorna em lista, se `global = FALSE`).
 #' @export
 dados_pns_2019 <- function(vars = c(), global = TRUE) {
+
+  options(survey.lonely.psu = "adjust")
+
   # Variáveis obrigatórias para o design
   vars_fixas <- c("C006", "VDF002", "VDF003", "V0001", "V0026", "D001")
   vars <- unique(c(vars, vars_fixas))
@@ -24,7 +27,7 @@ dados_pns_2019 <- function(vars = c(), global = TRUE) {
     anthropometry=TRUE
   )
 
-  options(survey.lonely.psu = "adjust")
+
 
   if (global) {
     assign("dados_pns_design", dados_pns_design, envir = .GlobalEnv)
