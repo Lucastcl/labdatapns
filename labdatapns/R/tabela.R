@@ -7,7 +7,7 @@
 #' @param filtro Expressão lógica para filtrar os dados.
 #' @param dominio Domínio para desagregação: "nenhum", "UF" ou "V0026".
 #' @param metrica Tipo de métrica: "total", "media" ou "prop".
-#' @param agrupar_por Vetor de variáveis para desagregação adicional (ex: sexo, idade).
+#' @param desagregar Vetor de variáveis para desagregação adicional (ex: sexo, idade).
 #'
 #' @return Um data frame com os resultados da estimativa, intervalo de confiança e coeficiente de variação.
 #' @importFrom rlang enquo quo_is_null eval_tidy parse_expr
@@ -18,7 +18,7 @@ tabela <- function(variaveis = c(),
                    filtro = NULL,
                    dominio = c("nenhum", "UF", "V0026"),
                    metrica = c("total", "media", "prop"),
-                   agrupar_por = NULL) {
+                   desagregar = NULL) {
 
   suppressWarnings({
 
@@ -136,12 +136,12 @@ tabela <- function(variaveis = c(),
       return(resultado)
     }
 
-    if (is.null(agrupar_por)) {
+    if (is.null(desagregar)) {
       return(executar_estima())
     }
 
-    lista_niveis <- lapply(agrupar_por, function(v) unique(na.omit(dados_pns_design$variables[[v]])))
-    names(lista_niveis) <- agrupar_por
+    lista_niveis <- lapply(desagregar, function(v) unique(na.omit(dados_pns_design$variables[[v]])))
+    names(lista_niveis) <- desagregar
     combinacoes <- expand.grid(lista_niveis, stringsAsFactors = FALSE)
 
     resultados_lista <- apply(combinacoes, 1, function(comb) {

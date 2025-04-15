@@ -9,7 +9,7 @@ tabela(
   filtro = NULL,
   dominio = c("nenhum", "UF", "V0026"),
   metrica = c("total", "media", "prop"),
-  agrupar_por = NULL
+  desagregar = NULL
 )
 }
 \arguments{
@@ -21,7 +21,7 @@ tabela(
 
 \item{metrica}{Tipo de métrica: "total", "media" ou "prop".}
 
-\item{agrupar_por}{Vetor de variáveis para desagregação adicional (ex: sexo, idade).}
+\item{desagregar}{Vetor de variáveis para desagregação adicional (ex: sexo, idade).}
 }
 \value{
 Um data frame com os resultados da estimativa, intervalo de confiança e coeficiente de variação.
