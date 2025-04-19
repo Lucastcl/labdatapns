@@ -5,15 +5,15 @@
 \title{Gera tabela a partir do desenho amostral da PNS}
 \usage{
 tabela(
-  variaveis = c(),
+  variaveis,
   filtro = NULL,
-  dominio = c("nenhum", "UF", "V0026"),
-  metrica = c("total", "media", "prop"),
+  dominio = NULL,
+  metrica = NULL,
   desagregar = NULL
 )
 }
 \arguments{
-\item{variaveis}{Vetor com o nome da variável a ser analisada (usar apenas uma por vez).}
+\item{variaveis}{Vetor com o nome da variável a ser analisada (símbolos, não strings).}
 
 \item{filtro}{Expressão lógica para filtrar os dados.}
 
@@ -21,7 +21,7 @@ tabela(
 
 \item{metrica}{Tipo de métrica: "total", "media" ou "prop".}
 
-\item{desagregar}{Vetor de variáveis para desagregação adicional (ex: sexo, idade).}
+\item{desagregar}{Variável(s) para desagregação adicional (símbolos ou uso de +).}
 }
 \value{
 Um data frame com os resultados da estimativa, intervalo de confiança e coeficiente de variação.
