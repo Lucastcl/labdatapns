@@ -2,7 +2,7 @@
 % Please edit documentation in R/dados_pns_2019.R
 \name{dados_pns_2019}
 \alias{dados_pns_2019}
-\title{Carrega os dados da PNS 2019 com desenho amostral}
+\title{Carrega os dados da PNS 2019 com desenho amostral e colunas derivadas}
 \usage{
 dados_pns_2019(
   vars = c(),
@@ -24,7 +24,7 @@ dados_pns_2019(
 Atribui \code{dados_pns_design} e \code{vars} ao ambiente global (ou retorna em lista, se \code{global = FALSE}).
 }
 \description{
-Esta função baixa e prepara os dados da PNS 2019 com as variáveis solicitadas
-e o desenho amostral (survey design). Algumas variáveis obrigatórias para o design
-são sempre incluídas automaticamente.
+Esta função baixa e prepara os dados da PNS 2019 com as variáveis solicitadas,
+o desenho amostral (survey design), e adiciona variáveis derivadas como faixa etária,
+região, IMC categorizado e variáveis renomeadas.
 }
