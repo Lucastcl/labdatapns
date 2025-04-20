@@ -4,19 +4,18 @@
 \alias{buscar_codigo}
 \title{Buscar variáveis no dicionário da PNS}
 \usage{
-buscar_codigo(palavra, ignore_case = TRUE)
+buscar_codigo(palavra, ignore_case = TRUE, ano = NULL)
 }
 \arguments{
-\item{palavra}{Palavra ou expressão a ser buscada nas perguntas.}
+\item{palavra}{Palavra ou expressão regular a ser buscada nas perguntas.}
 
 \item{ignore_case}{Lógico. Se \code{TRUE}, a busca ignora maiúsculas e minúsculas.}
+
+\item{ano}{Opcional. Pode ser 2013, 2019 ou \code{NULL} para ambos.}
 }
 \value{
 Um data frame com as colunas \code{codigo}, \code{pergunta} e \code{Ano} das variáveis que correspondem à busca.
 }
 \description{
 Filtra o dicionário da PNS procurando por uma palavra-chave no texto da pergunta.
-}
-\details{
-O objeto \code{dicionario} deve estar disponível no ambiente e conter as colunas \code{codigo}, \code{pergunta} e \code{Ano}.
 }

@@ -2,4 +2,5 @@
 
 export(buscar_codigo)
 export(dados_pns_2019)
+export(documentacao_variavel)
 export(tabela)
