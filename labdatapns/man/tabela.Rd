@@ -13,7 +13,7 @@ tabela(
 )
 }
 \arguments{
-\item{variaveis}{Vetor com o nome da variável a ser analisada (símbolos, não strings).}
+\item{variaveis}{Variável ou variáveis a serem analisadas (símbolos com ou sem uso de +).}
 
 \item{filtro}{Expressão lógica para filtrar os dados.}
 
