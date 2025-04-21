@@ -79,7 +79,8 @@ dados_pns_2019 <- function(vars = c(), global = TRUE, selecionado = TRUE, antrop
       renda = VDF003,
       faixa_renda = VDF004,
       raça = C009,
-      ler_escrever = D001
+      ler_escrever = D001,
+      atividade_fisica = P04801
     )
 
   # Retorno
