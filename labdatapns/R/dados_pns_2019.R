@@ -16,7 +16,7 @@ dados_pns_2019 <- function(vars = c(), global = TRUE, selecionado = TRUE, antrop
   options(survey.lonely.psu = "adjust")
 
   # Variáveis obrigatórias para o design
-  vars_fixas <- c("C006", "C008","C009","P00404", "P00104", "VDF003", "VDF004", "VDF002",
+  vars_fixas <- c("C006", "C008","C009","D001","P00404", "P00104", "VDF003", "VDF004", "VDF002",
                   "V0001", "V0026", "D001")
   vars <- unique(c(vars, vars_fixas))
 
@@ -78,7 +78,8 @@ dados_pns_2019 <- function(vars = c(), global = TRUE, selecionado = TRUE, antrop
       uf = V0001,
       renda = VDF003,
       faixa_renda = VDF004,
-      raça = C009
+      raça = C009,
+      ler_escrever = D001
     )
 
   # Retorno
