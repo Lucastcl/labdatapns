@@ -17,7 +17,7 @@ dados_pns_2019 <- function(vars = c(), global = TRUE, selecionado = TRUE, antrop
 
   # Variáveis obrigatórias para o design
   vars_fixas <- c("C006", "C008","C009","D001","P00404", "P00104", "VDF003", "VDF004", "VDF002",
-                  "V0001", "V0026", "D001")
+                  "V0001", "V0026", "D001","P04801")
   vars <- unique(c(vars, vars_fixas))
 
   # Obtém os dados com o survey design
