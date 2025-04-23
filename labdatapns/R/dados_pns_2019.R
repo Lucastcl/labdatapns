@@ -90,6 +90,7 @@ dados_pns_2019 <- function(vars = c(), global = TRUE, selecionado = TRUE, antrop
         imc_valor >= 35   & imc_valor < 40  ~ "Obesidade grau II",
         imc_valor >= 40               ~ "Obesidade grau III"
       ),
+      domicilio = V0026,
       sexo = C006,
       idade = C008,
       uf = V0001,
