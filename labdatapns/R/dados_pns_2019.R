@@ -41,6 +41,23 @@ dados_pns_2019 <- function(vars = c(), global = TRUE, selecionado = TRUE, antrop
         C008 >= 75             ~ "75 ou mais",
         TRUE                   ~ NA_character_
       ),
+      dados_pns_design$variables <- dados_pns_design$variables %>%
+        mutate(
+          faixa_idade_5 = case_when(
+            C008 < 18 ~ NA_character_,
+            TRUE ~ cut(
+              C008,
+              breaks = c(18, 24, 29, 34, 39, 44, 49, 54, 59, 64, 69, 74, Inf),
+              right = TRUE,
+              include.lowest = TRUE,
+              labels = c(
+                "18 a 24", "25 a 29", "30 a 34", "35 a 39", "40 a 44",
+                "45 a 49", "50 a 54", "55 a 59", "60 a 64",
+                "65 a 69", "70 a 74", "75 ou mais"
+              )
+            )
+          )
+        ),
       regiao = case_when(
         V0001 %in% c("Rondônia", "Acre", "Amazonas", "Roraima", "Pará", "Amapá", "Tocantins") ~ "Norte",
         V0001 %in% c("Maranhão", "Piauí", "Ceará", "Rio Grande do Norte", "Paraíba",
