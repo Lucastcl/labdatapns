@@ -8,7 +8,7 @@
 #' @return Um `list` com `pergunta` e `categorias`. Também imprime a documentação.
 #'
 #' @export
-documentacao_variavel <- function(codigo, ano = NULL) {
+documentacao_codigo <- function(codigo, ano = NULL) {
   # Verificações
   if (!exists("dicionario") || !exists("dicionario_v")) {
     stop("Os objetos `dicionario` e `dicionario_v` devem estar disponíveis no ambiente.")
