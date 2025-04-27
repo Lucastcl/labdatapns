@@ -14,25 +14,27 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
   library(dplyr)
   library(rlang)
 
+  # Captura expressões dos argumentos
   variaveis_expr <- enexpr(variaveis)
-  filtro_expr <- enexpr(filtro)
+  filtro_expr <- enquo(filtro)
   dominio_expr <- enexpr(dominio)
   desagregar_expr <- enexpr(desagregar)
 
+  # Função para extrair nomes de variáveis
   extrair_nomes <- function(expr) {
     if (is_call(expr, "+")) {
       unlist(lapply(call_args(expr), extrair_nomes))
     } else if (is_symbol(expr)) {
       as_string(expr)
     } else {
-      stop("Expressão inválida. Use nomes de variáveis com ou sem '+'.")
+      stop("Expressão inválida para variáveis.")
     }
   }
 
+  # Função para extrair apenas filtro relacionado à idade
   extrair_idade_filtro <- function(expr) {
-    if (is.null(expr)) {
-      return(NULL)
-    }
+    if (is.null(expr)) return(NULL)
+    expr <- get_expr(expr)
     if (is_call(expr)) {
       op <- call_name(expr)
       if (op %in% c("&", "|")) {
@@ -51,23 +53,16 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
         lado_esquerdo <- expr[[2]]
         if (is_symbol(lado_esquerdo) && as_string(lado_esquerdo) == "idade") {
           return(expr)
-        } else {
-          return(NULL)
         }
       }
-    } else {
-      return(NULL)
     }
+    return(NULL)
   }
 
-  desagregar_chr <- if (!quo_is_null(enquo(desagregar))) {
-    extrair_nomes(desagregar_expr)
-  } else {
-    character(0)
-  }
-
+  # Extrai nomes
   variaveis_chr <- extrair_nomes(variaveis_expr)
   var_nome <- variaveis_chr[[1]]
+  desagregar_chr <- if (!quo_is_null(enquo(desagregar))) extrair_nomes(desagregar_expr) else character(0)
 
   # Numerador
   num <- tabela(
@@ -78,15 +73,12 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
     metrica = total
   )
 
-  # Filtro apenas de idade (para o denominador)
-  filtro_idade <- extrair_idade_filtro(get_expr(filtro_expr))
-  filtro_idade_expr <- if (!is.null(filtro_idade)) {
-    new_quosure(filtro_idade)
-  } else {
-    NULL
+  # Denominador
+  filtro_idade_expr <- extrair_idade_filtro(filtro_expr)
+  if (!is.null(filtro_idade_expr)) {
+    filtro_idade_expr <- new_quosure(filtro_idade_expr)
   }
 
-  # Denominador
   denom <- tabela(
     variaveis = V0025A,
     filtro = !!filtro_idade_expr,
@@ -95,22 +87,34 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
     metrica = total
   )
 
+  # Ajusta nomes
   total_num_col <- paste0("total_", var_nome)
   cv_num_col <- paste0("cv_", var_nome)
   total_denom_col <- "total_V0025A"
   cv_denom_col <- "cv_V0025A"
 
-  # Juntar numerador e denominador
-  base <- left_join(num, denom, by = desagregar_chr)
+  # Ajuste para fazer o join correto
+  colunas_join <- c()
+  if ("dominio" %in% names(num)) {
+    colunas_join <- c(colunas_join, "dominio")
+  }
+  colunas_join <- c(colunas_join, desagregar_chr)
 
-  # Ajustar categoria
+  base <- left_join(num, denom, by = colunas_join)
+
+  # Ajuste categoria
   if ("categoria.x" %in% names(base)) {
     base <- base %>% rename(categoria = categoria.x)
   } else {
     base <- base %>% mutate(categoria = "Total")
   }
 
-  # Calcular proporção
+  # Se existir domínio, renomear para UF
+  if ("dominio" %in% names(base)) {
+    base <- base %>% rename(UF = dominio)
+  }
+
+  # Calcula proporção e medidas associadas
   base <- base %>%
     mutate(
       prop = !!sym(total_num_col) / !!sym(total_denom_col),
@@ -121,7 +125,7 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
       ic_inferior = prop - 1.96 * se_prop,
       ic_superior = prop + 1.96 * se_prop
     ) %>%
-    select(all_of(desagregar_chr), categoria, prop, cv_prop, ic_inferior, ic_superior)
+    select(all_of(c(if ("UF" %in% names(base)) "UF", desagregar_chr)), categoria, prop, cv_prop, ic_inferior, ic_superior)
 
   return(base)
 }

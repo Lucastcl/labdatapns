@@ -13,34 +13,42 @@
 #' @export
 tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, desagregar = NULL) {
   suppressWarnings({
+    library(dplyr)
+    library(rlang)
+    library(survey)
 
-    # Função auxiliar para extrair os nomes das variáveis de uma expressão com '+'
+    # Função auxiliar para extrair nomes de variáveis
     extrair_nomes <- function(expr) {
-      if (rlang::is_call(expr, "+")) {
-        unlist(lapply(rlang::call_args(expr), extrair_nomes))
-      } else if (rlang::is_symbol(expr)) {
-        rlang::as_string(expr)
+      if (is_call(expr, "+")) {
+        unlist(lapply(call_args(expr), extrair_nomes))
+      } else if (is_symbol(expr)) {
+        as_string(expr)
       } else {
         stop("Expressão inválida. Use nomes de variáveis com ou sem '+'.")
       }
     }
 
-    variaveis_expr <- rlang::enexpr(variaveis)
+    # Captura expressões dos argumentos
+    variaveis_expr <- enexpr(variaveis)
     variaveis_chr <- extrair_nomes(variaveis_expr)
 
-    dominio_expr <- rlang::enexpr(dominio)
-    metrica_expr <- rlang::enexpr(metrica)
-    desagregar_expr <- rlang::enexpr(desagregar)
-    filtro_expr <- rlang::enquo(filtro)
+    dominio_expr <- enexpr(dominio)
+    metrica_expr <- enexpr(metrica)
+    desagregar_expr <- enexpr(desagregar)
+    filtro_expr <- enquo(filtro)
 
-    dominio_chr <- if (!rlang::quo_is_null(rlang::enquo(dominio))) rlang::as_string(dominio_expr) else "nenhum"
-    metrica_chr <- if (!rlang::quo_is_null(rlang::enquo(metrica))) rlang::as_string(metrica_expr) else "total"
+    # Converte para string
+    dominio_chr <- if (!quo_is_null(enquo(dominio))) as_string(dominio_expr) else "nenhum"
+    metrica_chr <- if (!quo_is_null(enquo(metrica))) as_string(metrica_expr) else "total"
 
-    desagregar_chr <- if (!rlang::quo_is_null(rlang::enquo(desagregar))) extrair_nomes(desagregar_expr) else character(0)
-
-    metrica_chr <- match.arg(metrica_chr, choices = c("total", "media", "prop", "prop_pop"))
+    # Garante valores válidos
     dominio_chr <- match.arg(dominio_chr, choices = c("nenhum", "UF", "V0026"))
+    metrica_chr <- match.arg(metrica_chr, choices = c("total", "media", "prop", "prop_pop"))
 
+    # Extrai variáveis para desagregação
+    desagregar_chr <- if (!quo_is_null(enquo(desagregar))) extrair_nomes(desagregar_expr) else character(0)
+
+    # Se metrica for prop_pop, delega para tabela_prop
     if (metrica_chr == "prop_pop") {
       resultado <- tabela_prop(
         variaveis = !!variaveis_expr,
@@ -51,6 +59,7 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
       return(resultado)
     }
 
+    # Aplica filtro se necessário
     dados_filtrados <- if (!rlang::quo_is_null(filtro_expr)) {
       subset(dados_pns_design, rlang::eval_tidy(filtro_expr, data = dados_pns_design$variables))
     } else {
@@ -61,6 +70,7 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
       classe_var <- class(dados_pns_design$variables[[var]])
       is_continua <- any(classe_var %in% c("numeric", "integer", "double"))
 
+      # Define o estimador conforme métrica
       estimador <- switch(
         metrica_chr,
         total = function(x, design) svytotal(x, design = design, na.rm = TRUE),
@@ -70,7 +80,7 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
 
       executar_estima <- function(filtro_extra = NULL) {
         dados_sub <- if (!is.null(filtro_extra)) {
-          subset(dados_filtrados, eval(rlang::parse_expr(filtro_extra), envir = dados_filtrados$variables))
+          subset(dados_filtrados, eval(parse_expr(filtro_extra), envir = dados_filtrados$variables))
         } else dados_filtrados
 
         if (dominio_chr == "nenhum") {
@@ -79,10 +89,12 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
           intervalo <- confint(est)
           cv_valores <- cv(est)
           categorias <- rownames(est)
+
           if (is.null(categorias) || any(nchar(categorias) == 0)) {
             categorias <- names(est)
           }
           categorias <- gsub(paste0("^", var), "", categorias)
+
           resultado <- data.frame(
             categoria = categorias,
             metrica = as.numeric(est),
@@ -91,39 +103,50 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
             ic_superior = intervalo[, 2],
             stringsAsFactors = FALSE
           )
+
           resultado <- resultado[resultado$metrica != 0 & resultado$categoria != "Ignorado", ]
           rownames(resultado) <- NULL
           return(resultado)
         }
 
+        # Se houver domínio
+        dominio_var <- ifelse(dominio_chr == "UF", "V0001", "V0026")
+
+        # Para média de variáveis contínuas
         if (metrica_chr == "media" && is_continua) {
-          dominio_var <- ifelse(dominio_chr == "UF", "V0001", "V0026")
           dominios <- unique(na.omit(dados_sub$variables[[dominio_var]]))
           resultados <- lapply(dominios, function(dom) {
             valor_expr <- shQuote(as.character(dom))
             filtro_dom <- paste0(dominio_var, " == ", valor_expr)
-            dados_dom <- subset(dados_sub, eval(rlang::parse_expr(filtro_dom), envir = dados_sub$variables))
+            dados_dom <- subset(dados_sub, eval(parse_expr(filtro_dom), envir = dados_sub$variables))
+
             est <- svymean(as.formula(paste0("~", var)), dados_dom, na.rm = TRUE)
             intervalo <- confint(est)
             cv_valores <- cv(est)
-            data.frame(dominio = dom, categoria = "media",
-                       metrica = as.numeric(est), cv = as.vector(cv_valores),
-                       ic_inferior = intervalo[, 1], ic_superior = intervalo[, 2])
+
+            data.frame(
+              dominio = dom,
+              categoria = "media",
+              metrica = as.numeric(est),
+              cv = as.vector(cv_valores),
+              ic_inferior = intervalo[, 1],
+              ic_superior = intervalo[, 2]
+            )
           })
           resultado <- do.call(rbind, resultados)
           rownames(resultado) <- NULL
           return(resultado)
         }
 
-        dominio_var <- ifelse(dominio_chr == "UF", "V0001", "V0026")
+        # Para variáveis categóricas com domínio
         formula_inter <- reformulate(paste0("interaction(", dominio_var, ",", var, ")"))
         est <- estimador(formula_inter, dados_sub)
         intervalo <- confint(est)
-        cv_res <- cv(est)
+        cv_valores <- cv(est)
 
         est_df <- as.data.frame(est)
         intervalo_df <- as.data.frame(intervalo)
-        cv_df <- as.data.frame(cv_res)
+        cv_df <- as.data.frame(cv_valores)
 
         limpar_rownames_inter <- function(nome_df) {
           nomes <- rownames(nome_df)
@@ -148,11 +171,12 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
         colnames(cv_df)[1] <- "cv"
 
         resultado <- est_df %>%
-          dplyr::left_join(intervalo_df, by = c("dominio", "categoria")) %>%
-          dplyr::left_join(cv_df, by = c("dominio", "categoria"))
+          left_join(intervalo_df, by = c("dominio", "categoria")) %>%
+          left_join(cv_df, by = c("dominio", "categoria"))
 
         resultado <- resultado[resultado$metrica != 0 & resultado$categoria != "Ignorado", ]
         rownames(resultado) <- NULL
+
         return(resultado)
       }
 
@@ -176,28 +200,22 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
           return(tabela_filtrada)
         })
 
-        resultado <- dplyr::bind_rows(purrr::compact(resultados_lista))
+        resultado <- bind_rows(purrr::compact(resultados_lista))
       }
 
+      # Renomear colunas
       col_renomear <- colnames(resultado)
-      if ("metrica" %in% col_renomear) {
-        colnames(resultado)[col_renomear == "metrica"] <- paste0(metrica_chr, "_", var)
-      }
-      if ("cv" %in% col_renomear) {
-        colnames(resultado)[col_renomear == "cv"] <- paste0("cv_", var)
-      }
-      if ("ic_inferior" %in% col_renomear) {
-        colnames(resultado)[col_renomear == "ic_inferior"] <- paste0("ic_inferior_", var)
-      }
-      if ("ic_superior" %in% col_renomear) {
-        colnames(resultado)[col_renomear == "ic_superior"] <- paste0("ic_superior_", var)
-      }
+      if ("metrica" %in% col_renomear) colnames(resultado)[col_renomear == "metrica"] <- paste0(metrica_chr, "_", var)
+      if ("cv" %in% col_renomear) colnames(resultado)[col_renomear == "cv"] <- paste0("cv_", var)
+      if ("ic_inferior" %in% col_renomear) colnames(resultado)[col_renomear == "ic_inferior"] <- paste0("ic_inferior_", var)
+      if ("ic_superior" %in% col_renomear) colnames(resultado)[col_renomear == "ic_superior"] <- paste0("ic_superior_", var)
 
       return(resultado)
     })
 
-    final <- purrr::reduce(resultados_final, dplyr::left_join, by = c("dominio", "categoria", desagregar_chr))
+    final <- purrr::reduce(resultados_final, left_join, by = c("dominio", "categoria", desagregar_chr))
     rownames(final) <- NULL
+
     return(final)
   })
 }
