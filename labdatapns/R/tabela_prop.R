@@ -73,14 +73,14 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
     metrica = total
   )
 
-  # Denominador
+  # Denominador usando V0015 (fixado)
   filtro_idade_expr <- extrair_idade_filtro(filtro_expr)
   if (!is.null(filtro_idade_expr)) {
     filtro_idade_expr <- new_quosure(filtro_idade_expr)
   }
 
   denom <- tabela(
-    variaveis = V0025A,
+    variaveis = V0015,
     filtro = !!filtro_idade_expr,
     dominio = !!dominio_expr,
     desagregar = !!desagregar_expr,
@@ -90,8 +90,8 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
   # Ajusta nomes
   total_num_col <- paste0("total_", var_nome)
   cv_num_col <- paste0("cv_", var_nome)
-  total_denom_col <- "total_V0025A"
-  cv_denom_col <- "cv_V0025A"
+  total_denom_col <- "total_V0015"
+  cv_denom_col <- "cv_V0015"
 
   # Ajuste para fazer o join correto
   colunas_join <- c()
