@@ -2,23 +2,33 @@
 % Please edit documentation in R/tabela_prop.R
 \name{tabela_prop}
 \alias{tabela_prop}
-\title{Calcula proporção populacional ajustada}
+\title{Calcula proporção populacional da variável de interesse}
 \usage{
-tabela_prop(variaveis, filtro = NULL, dominio = NULL, desagregar = NULL)
+tabela_prop(
+  variaveis,
+  filtro = NULL,
+  dominio = NULL,
+  desagregar = NULL,
+  derivacao = FALSE
+)
 }
 \arguments{
-\item{variaveis}{Variável ou combinação de variáveis para o numerador (usar \code{+} para múltiplas).}
+\item{variaveis}{Variável ou expressão de variáveis (com \code{+}) para o numerador da proporção.}
 
-\item{filtro}{Expressão lógica opcional para aplicar no numerador.}
+\item{filtro}{Expressão lógica com as condições para o numerador.}
 
-\item{dominio}{Domínio para desagregação: "nenhum", "UF" ou "V0026".}
+\item{dominio}{Variável de domínio para desagregação ("UF" ou "V0026").}
 
-\item{desagregar}{Variáveis adicionais para desagregar os resultados.}
+\item{desagregar}{Variáveis adicionais para desagregação.}
+
+\item{derivacao}{Quando TRUE, cria uma variável categórica auxiliar com dois rótulos para evitar perdas por \code{NA}.}
 }
 \value{
-Um data frame com proporção, erro padrão, coeficiente de variação e intervalos de confiança.
+Um data frame com proporções, erro padrão, coeficiente de variação e intervalos de confiança.
 }
 \description{
-Calcula a proporção de uma variável sobre a população total,
-considerando filtros e desagregações específicas.
+Esta função calcula a proporção populacional de uma variável categórica,
+com base no total populacional estimado pela variável V0015. Para filtros
+compostos com possíveis \code{NA}, pode-se ativar a criação de uma variável
+indicadora auxiliar com \code{derivacao = TRUE}.
 }

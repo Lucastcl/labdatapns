@@ -1,26 +1,28 @@
-#' Calcula proporção populacional ajustada
+#' Calcula proporção populacional da variável de interesse
 #'
-#' Calcula a proporção de uma variável sobre a população total,
-#' considerando filtros e desagregações específicas.
+#' Esta função calcula a proporção populacional de uma variável categórica,
+#' com base no total populacional estimado pela variável V0015. Para filtros
+#' compostos com possíveis `NA`, pode-se ativar a criação de uma variável
+#' indicadora auxiliar com `derivacao = TRUE`.
 #'
-#' @param variaveis Variável ou combinação de variáveis para o numerador (usar `+` para múltiplas).
-#' @param filtro Expressão lógica opcional para aplicar no numerador.
-#' @param dominio Domínio para desagregação: "nenhum", "UF" ou "V0026".
-#' @param desagregar Variáveis adicionais para desagregar os resultados.
+#' @param variaveis Variável ou expressão de variáveis (com `+`) para o numerador da proporção.
+#' @param filtro Expressão lógica com as condições para o numerador.
+#' @param dominio Variável de domínio para desagregação ("UF" ou "V0026").
+#' @param desagregar Variáveis adicionais para desagregação.
+#' @param derivacao Quando TRUE, cria uma variável categórica auxiliar com dois rótulos para evitar perdas por `NA`.
 #'
-#' @return Um data frame com proporção, erro padrão, coeficiente de variação e intervalos de confiança.
+#' @return Um data frame com proporções, erro padrão, coeficiente de variação e intervalos de confiança.
 #' @export
-tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = NULL) {
+
+tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = NULL, derivacao = FALSE) {
   library(dplyr)
   library(rlang)
 
-  # Captura expressões dos argumentos
   variaveis_expr <- enexpr(variaveis)
   filtro_expr <- enquo(filtro)
   dominio_expr <- enexpr(dominio)
   desagregar_expr <- enexpr(desagregar)
 
-  # Função para extrair nomes de variáveis
   extrair_nomes <- function(expr) {
     if (is_call(expr, "+")) {
       unlist(lapply(call_args(expr), extrair_nomes))
@@ -31,7 +33,6 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
     }
   }
 
-  # Função para extrair apenas filtro relacionado à idade
   extrair_idade_filtro <- function(expr) {
     if (is.null(expr)) return(NULL)
     expr <- get_expr(expr)
@@ -59,21 +60,34 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
     return(NULL)
   }
 
-  # Extrai nomes
   variaveis_chr <- extrair_nomes(variaveis_expr)
-  var_nome <- variaveis_chr[[1]]
+  var_nome <- if (derivacao) "grupo_filtro" else variaveis_chr[[1]]
   desagregar_chr <- if (!quo_is_null(enquo(desagregar))) extrair_nomes(desagregar_expr) else character(0)
 
-  # Numerador
   num <- tabela(
     variaveis = !!variaveis_expr,
     filtro = !!filtro_expr,
     dominio = !!dominio_expr,
     desagregar = !!desagregar_expr,
-    metrica = total
+    metrica = total,
+    derivacao = derivacao
   )
 
-  # Denominador usando V0015 (fixado)
+  if (derivacao && var_nome == "grupo_filtro") {
+    total_geral <- sum(num[[paste0("total_", var_nome)]], na.rm = TRUE)
+    base <- num %>%
+      mutate(
+        prop = !!sym(paste0("total_", var_nome)) / total_geral,
+        se = !!sym(paste0("cv_", var_nome)) * !!sym(paste0("total_", var_nome)),
+        se_prop = se / total_geral,
+        cv_prop = se_prop / prop,
+        ic_inferior = prop - 1.96 * se_prop,
+        ic_superior = prop + 1.96 * se_prop
+      ) %>%
+      select(categoria, prop, cv_prop, ic_inferior, ic_superior)
+    return(base)
+  }
+
   filtro_idade_expr <- extrair_idade_filtro(filtro_expr)
   if (!is.null(filtro_idade_expr)) {
     filtro_idade_expr <- new_quosure(filtro_idade_expr)
@@ -87,13 +101,11 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
     metrica = total
   )
 
-  # Ajusta nomes
   total_num_col <- paste0("total_", var_nome)
   cv_num_col <- paste0("cv_", var_nome)
   total_denom_col <- "total_V0015"
   cv_denom_col <- "cv_V0015"
 
-  # Ajuste para fazer o join correto
   colunas_join <- c()
   if ("dominio" %in% names(num)) {
     colunas_join <- c(colunas_join, "dominio")
@@ -102,19 +114,16 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
 
   base <- left_join(num, denom, by = colunas_join)
 
-  # Ajuste categoria
   if ("categoria.x" %in% names(base)) {
     base <- base %>% rename(categoria = categoria.x)
   } else {
     base <- base %>% mutate(categoria = "Total")
   }
 
-  # Se existir domínio, renomear para UF
   if ("dominio" %in% names(base)) {
     base <- base %>% rename(UF = dominio)
   }
 
-  # Calcula proporção e medidas associadas
   base <- base %>%
     mutate(
       prop = !!sym(total_num_col) / !!sym(total_denom_col),

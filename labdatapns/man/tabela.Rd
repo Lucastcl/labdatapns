@@ -9,7 +9,8 @@ tabela(
   filtro = NULL,
   dominio = NULL,
   metrica = NULL,
-  desagregar = NULL
+  desagregar = NULL,
+  derivacao = FALSE
 )
 }
 \arguments{
@@ -19,14 +20,18 @@ tabela(
 
 \item{dominio}{Domínio para desagregação: "nenhum", "UF" ou "V0026".}
 
-\item{metrica}{Tipo de métrica: "total", "media" ou "prop".}
+\item{metrica}{Tipo de métrica: "total", "media", "prop" ou "prop_pop".}
 
 \item{desagregar}{Variável(s) para desagregação adicional (símbolos ou uso de +).}
+
+\item{derivacao}{Quando TRUE, cria uma variável categórica binária auxiliar
+"grupo_filtro" que evita perdas por NA em filtros lógicos compostos.}
 }
 \value{
 Um data frame com os resultados da estimativa, intervalo de confiança e coeficiente de variação.
 }
 \description{
 Esta função calcula totais, médias ou proporções de variáveis da PNS,
-com opção de filtragem, domínio e agrupamento.
+com opção de filtragem, domínio e desagregação. Suporta também a derivação
+de variáveis indicadoras binárias com \code{derivacao = TRUE}.
 }

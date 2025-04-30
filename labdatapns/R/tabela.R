@@ -1,23 +1,26 @@
 #' Gera tabela a partir do desenho amostral da PNS
 #'
 #' Esta função calcula totais, médias ou proporções de variáveis da PNS,
-#' com opção de filtragem, domínio e agrupamento.
+#' com opção de filtragem, domínio e desagregação. Suporta também a derivação
+#' de variáveis indicadoras binárias com `derivacao = TRUE`.
 #'
 #' @param variaveis Variável ou variáveis a serem analisadas (símbolos com ou sem uso de +).
 #' @param filtro Expressão lógica para filtrar os dados.
 #' @param dominio Domínio para desagregação: "nenhum", "UF" ou "V0026".
-#' @param metrica Tipo de métrica: "total", "media" ou "prop".
+#' @param metrica Tipo de métrica: "total", "media", "prop" ou "prop_pop".
 #' @param desagregar Variável(s) para desagregação adicional (símbolos ou uso de +).
+#' @param derivacao Quando TRUE, cria uma variável categórica binária auxiliar
+#'   "grupo_filtro" que evita perdas por NA em filtros lógicos compostos.
 #'
 #' @return Um data frame com os resultados da estimativa, intervalo de confiança e coeficiente de variação.
 #' @export
-tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, desagregar = NULL) {
+
+tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, desagregar = NULL, derivacao = FALSE) {
   suppressWarnings({
     library(dplyr)
     library(rlang)
     library(survey)
 
-    # Função auxiliar para extrair nomes de variáveis
     extrair_nomes <- function(expr) {
       if (is_call(expr, "+")) {
         unlist(lapply(call_args(expr), extrair_nomes))
@@ -28,7 +31,6 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
       }
     }
 
-    # Captura expressões dos argumentos
     variaveis_expr <- enexpr(variaveis)
     variaveis_chr <- extrair_nomes(variaveis_expr)
 
@@ -37,29 +39,36 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
     desagregar_expr <- enexpr(desagregar)
     filtro_expr <- enquo(filtro)
 
-    # Converte para string
     dominio_chr <- if (!quo_is_null(enquo(dominio))) as_string(dominio_expr) else "nenhum"
     metrica_chr <- if (!quo_is_null(enquo(metrica))) as_string(metrica_expr) else "total"
 
-    # Garante valores válidos
     dominio_chr <- match.arg(dominio_chr, choices = c("nenhum", "UF", "V0026"))
     metrica_chr <- match.arg(metrica_chr, choices = c("total", "media", "prop", "prop_pop"))
 
-    # Extrai variáveis para desagregação
     desagregar_chr <- if (!quo_is_null(enquo(desagregar))) extrair_nomes(desagregar_expr) else character(0)
 
-    # Se metrica for prop_pop, delega para tabela_prop
     if (metrica_chr == "prop_pop") {
       resultado <- tabela_prop(
         variaveis = !!variaveis_expr,
         filtro = !!filtro_expr,
         dominio = !!dominio_expr,
-        desagregar = !!desagregar_expr
+        desagregar = !!desagregar_expr,
+        derivacao = derivacao
       )
       return(resultado)
     }
 
-    # Aplica filtro se necessário
+    if (!rlang::quo_is_null(filtro_expr) && derivacao) {
+      dados_pns_design$variables <- dados_pns_design$variables %>%
+        mutate(grupo_filtro = factor(
+          ifelse(!!rlang::get_expr(filtro_expr), 1, 0),
+          levels = c(1, 0),
+          labels = c("Pertence ao grupo do filtro", "Não pertence ao grupo do filtro")
+        ))
+      variaveis_chr <- "grupo_filtro"
+      filtro_expr <- quo(NULL)
+    }
+
     dados_filtrados <- if (!rlang::quo_is_null(filtro_expr)) {
       subset(dados_pns_design, rlang::eval_tidy(filtro_expr, data = dados_pns_design$variables))
     } else {
@@ -70,7 +79,6 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
       classe_var <- class(dados_pns_design$variables[[var]])
       is_continua <- any(classe_var %in% c("numeric", "integer", "double"))
 
-      # Define o estimador conforme métrica
       estimador <- switch(
         metrica_chr,
         total = function(x, design) svytotal(x, design = design, na.rm = TRUE),
@@ -109,10 +117,8 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
           return(resultado)
         }
 
-        # Se houver domínio
         dominio_var <- ifelse(dominio_chr == "UF", "V0001", "V0026")
 
-        # Para média de variáveis contínuas
         if (metrica_chr == "media" && is_continua) {
           dominios <- unique(na.omit(dados_sub$variables[[dominio_var]]))
           resultados <- lapply(dominios, function(dom) {
@@ -138,7 +144,6 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
           return(resultado)
         }
 
-        # Para variáveis categóricas com domínio
         formula_inter <- reformulate(paste0("interaction(", dominio_var, ",", var, ")"))
         est <- estimador(formula_inter, dados_sub)
         intervalo <- confint(est)
@@ -203,7 +208,6 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
         resultado <- bind_rows(purrr::compact(resultados_lista))
       }
 
-      # Renomear colunas
       col_renomear <- colnames(resultado)
       if ("metrica" %in% col_renomear) colnames(resultado)[col_renomear == "metrica"] <- paste0(metrica_chr, "_", var)
       if ("cv" %in% col_renomear) colnames(resultado)[col_renomear == "cv"] <- paste0("cv_", var)
