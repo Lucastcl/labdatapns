@@ -73,8 +73,20 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
     derivacao = derivacao
   )
 
+  filtro_idade_expr <- extrair_idade_filtro(filtro_expr)
+  if (!is.null(filtro_idade_expr)) {
+    filtro_idade_expr <- new_quosure(filtro_idade_expr)
+  }
+
   if (derivacao && var_nome == "grupo_filtro") {
-    total_geral <- sum(num[[paste0("total_", var_nome)]], na.rm = TRUE)
+    denom <- tabela(
+      variaveis = V0015,
+      filtro = !!filtro_idade_expr,
+      dominio = !!dominio_expr,
+      desagregar = !!desagregar_expr,
+      metrica = total
+    )
+    total_geral <- sum(denom$total_V0015, na.rm = TRUE)
     base <- num %>%
       mutate(
         prop = !!sym(paste0("total_", var_nome)) / total_geral,
@@ -86,11 +98,6 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
       ) %>%
       select(categoria, prop, cv_prop, ic_inferior, ic_superior)
     return(base)
-  }
-
-  filtro_idade_expr <- extrair_idade_filtro(filtro_expr)
-  if (!is.null(filtro_idade_expr)) {
-    filtro_idade_expr <- new_quosure(filtro_idade_expr)
   }
 
   denom <- tabela(

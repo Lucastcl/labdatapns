@@ -31,6 +31,33 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
       }
     }
 
+    extrair_idade_filtro <- function(expr) {
+      if (is.null(expr)) return(NULL)
+      expr <- get_expr(expr)
+      if (is_call(expr)) {
+        op <- call_name(expr)
+        if (op %in% c("&", "|")) {
+          esquerda <- extrair_idade_filtro(expr[[2]])
+          direita <- extrair_idade_filtro(expr[[3]])
+          if (!is.null(esquerda) && !is.null(direita)) {
+            return(call2(op, esquerda, direita))
+          } else if (!is.null(esquerda)) {
+            return(esquerda)
+          } else if (!is.null(direita)) {
+            return(direita)
+          } else {
+            return(NULL)
+          }
+        } else {
+          lado_esquerdo <- expr[[2]]
+          if (is_symbol(lado_esquerdo) && as_string(lado_esquerdo) == "idade") {
+            return(expr)
+          }
+        }
+      }
+      return(NULL)
+    }
+
     variaveis_expr <- enexpr(variaveis)
     variaveis_chr <- extrair_nomes(variaveis_expr)
 
@@ -59,14 +86,18 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
     }
 
     if (!rlang::quo_is_null(filtro_expr) && derivacao) {
+      filtro_base_expr <- extrair_idade_filtro(filtro_expr)
+      filtro_base_expr <- if (!is.null(filtro_base_expr)) new_quosure(filtro_base_expr) else quo(TRUE)
+
       dados_pns_design$variables <- dados_pns_design$variables %>%
         mutate(grupo_filtro = factor(
           ifelse(!!rlang::get_expr(filtro_expr), 1, 0),
           levels = c(1, 0),
           labels = c("Pertence ao grupo do filtro", "Não pertence ao grupo do filtro")
         ))
+
       variaveis_chr <- "grupo_filtro"
-      filtro_expr <- quo(NULL)
+      filtro_expr <- filtro_base_expr
     }
 
     dados_filtrados <- if (!rlang::quo_is_null(filtro_expr)) {
