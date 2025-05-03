@@ -3,22 +3,22 @@
 #' Esta função calcula a proporção populacional de uma variável categórica,
 #' com base no total populacional estimado pela variável V0015. Para filtros
 #' compostos com possíveis `NA`, pode-se ativar a criação de uma variável
-#' indicadora auxiliar com `derivacao = TRUE`.
+#' indicadora auxiliar com `filtro_binario = TRUE`.
 #'
-#' @param variaveis Variável ou expressão de variáveis (com `+`) para o numerador da proporção.
+#' @param codigo Variável ou expressão de variáveis (com `+`) para o numerador da proporção.
 #' @param filtro Expressão lógica com as condições para o numerador.
 #' @param dominio Variável de domínio para desagregação ("UF" ou "V0026").
 #' @param desagregar Variáveis adicionais para desagregação.
-#' @param derivacao Quando TRUE, cria uma variável categórica auxiliar com dois rótulos para evitar perdas por `NA`.
+#' @param filtro_binario Quando TRUE, cria uma variável categórica auxiliar com dois rótulos para evitar perdas por `NA`.
 #'
 #' @return Um data frame com proporções, erro padrão, coeficiente de variação e intervalos de confiança.
 #' @export
 
-tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = NULL, derivacao = FALSE) {
+tabela_prop <- function(codigo, filtro = NULL, dominio = NULL, desagregar = NULL, filtro_binario = FALSE) {
   library(dplyr)
   library(rlang)
 
-  variaveis_expr <- enexpr(variaveis)
+  codigo_expr <- enexpr(codigo)
   filtro_expr <- enquo(filtro)
   dominio_expr <- enexpr(dominio)
   desagregar_expr <- enexpr(desagregar)
@@ -60,17 +60,17 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
     return(NULL)
   }
 
-  variaveis_chr <- extrair_nomes(variaveis_expr)
-  var_nome <- if (derivacao) "grupo_filtro" else variaveis_chr[[1]]
+  codigo_chr <- extrair_nomes(codigo_expr)
+  var_nome <- if (filtro_binario) "grupo_filtro" else codigo_chr[[1]]
   desagregar_chr <- if (!quo_is_null(enquo(desagregar))) extrair_nomes(desagregar_expr) else character(0)
 
   num <- tabela(
-    variaveis = !!variaveis_expr,
+    codigo = !!codigo_expr,
     filtro = !!filtro_expr,
     dominio = !!dominio_expr,
     desagregar = !!desagregar_expr,
     metrica = total,
-    derivacao = derivacao
+    filtro_binario = filtro_binario
   )
 
   filtro_idade_expr <- extrair_idade_filtro(filtro_expr)
@@ -79,7 +79,7 @@ tabela_prop <- function(variaveis, filtro = NULL, dominio = NULL, desagregar = N
   }
 
   denom <- tabela(
-    variaveis = V0015,
+    codigo = V0015,
     filtro = !!filtro_idade_expr,
     dominio = !!dominio_expr,
     desagregar = !!desagregar_expr,

@@ -5,16 +5,16 @@
 \title{Gera tabela a partir do desenho amostral da PNS}
 \usage{
 tabela(
-  variaveis,
+  codigo,
   filtro = NULL,
   dominio = NULL,
   metrica = NULL,
   desagregar = NULL,
-  derivacao = FALSE
+  filtro_binario = FALSE
 )
 }
 \arguments{
-\item{variaveis}{Variável ou variáveis a serem analisadas (símbolos com ou sem uso de +).}
+\item{codigo}{Variável ou variáveis a serem analisadas (símbolos com ou sem uso de +).}
 
 \item{filtro}{Expressão lógica para filtrar os dados.}
 
@@ -24,7 +24,7 @@ tabela(
 
 \item{desagregar}{Variável(s) para desagregação adicional (símbolos ou uso de +).}
 
-\item{derivacao}{Quando TRUE, cria uma variável categórica binária auxiliar
+\item{filtro_binario}{Quando TRUE, cria uma variável categórica binária auxiliar
 "grupo_filtro" que evita perdas por NA em filtros lógicos compostos.}
 }
 \value{
@@ -33,5 +33,5 @@ Um data frame com os resultados da estimativa, intervalo de confiança e coefici
 \description{
 Esta função calcula totais, médias ou proporções de variáveis da PNS,
 com opção de filtragem, domínio e desagregação. Suporta também a derivação
-de variáveis indicadoras binárias com \code{derivacao = TRUE}.
+de variáveis indicadoras binárias com \code{filtro_binario = TRUE}.
 }

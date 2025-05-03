@@ -2,20 +2,20 @@
 #'
 #' Esta função calcula totais, médias ou proporções de variáveis da PNS,
 #' com opção de filtragem, domínio e desagregação. Suporta também a derivação
-#' de variáveis indicadoras binárias com `derivacao = TRUE`.
+#' de variáveis indicadoras binárias com `filtro_binario = TRUE`.
 #'
-#' @param variaveis Variável ou variáveis a serem analisadas (símbolos com ou sem uso de +).
+#' @param codigo Variável ou variáveis a serem analisadas (símbolos com ou sem uso de +).
 #' @param filtro Expressão lógica para filtrar os dados.
 #' @param dominio Domínio para desagregação: "nenhum", "UF" ou "V0026".
 #' @param metrica Tipo de métrica: "total", "media", "prop" ou "prop_pop".
 #' @param desagregar Variável(s) para desagregação adicional (símbolos ou uso de +).
-#' @param derivacao Quando TRUE, cria uma variável categórica binária auxiliar
+#' @param filtro_binario Quando TRUE, cria uma variável categórica binária auxiliar
 #'   "grupo_filtro" que evita perdas por NA em filtros lógicos compostos.
 #'
 #' @return Um data frame com os resultados da estimativa, intervalo de confiança e coeficiente de variação.
 #' @export
 
-tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, desagregar = NULL, derivacao = FALSE) {
+tabela <- function(codigo, filtro = NULL, dominio = NULL, metrica = NULL, desagregar = NULL, filtro_binario = FALSE) {
   suppressWarnings({
     library(dplyr)
     library(rlang)
@@ -58,8 +58,8 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
       return(NULL)
     }
 
-    variaveis_expr <- enexpr(variaveis)
-    variaveis_chr <- extrair_nomes(variaveis_expr)
+    codigo_expr <- enexpr(codigo)
+    codigo_chr <- extrair_nomes(codigo_expr)
 
     dominio_expr <- enexpr(dominio)
     metrica_expr <- enexpr(metrica)
@@ -76,16 +76,16 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
 
     if (metrica_chr == "prop_pop") {
       resultado <- tabela_prop(
-        variaveis = !!variaveis_expr,
+        codigo = !!codigo_expr,
         filtro = !!filtro_expr,
         dominio = !!dominio_expr,
         desagregar = !!desagregar_expr,
-        derivacao = derivacao
+        filtro_binario = filtro_binario
       )
       return(resultado)
     }
 
-    if (!rlang::quo_is_null(filtro_expr) && derivacao) {
+    if (!rlang::quo_is_null(filtro_expr) && filtro_binario) {
       filtro_base_expr <- extrair_idade_filtro(filtro_expr)
       filtro_base_expr <- if (!is.null(filtro_base_expr)) new_quosure(filtro_base_expr) else quo(TRUE)
 
@@ -96,7 +96,7 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
           labels = c("Pertence ao grupo do filtro", "Não pertence ao grupo do filtro")
         ))
 
-      variaveis_chr <- "grupo_filtro"
+      codigo_chr <- "grupo_filtro"
       filtro_expr <- filtro_base_expr
     }
 
@@ -106,7 +106,7 @@ tabela <- function(variaveis, filtro = NULL, dominio = NULL, metrica = NULL, des
       dados_pns_design
     }
 
-    resultados_final <- lapply(variaveis_chr, function(var) {
+    resultados_final <- lapply(codigo_chr, function(var) {
       classe_var <- class(dados_pns_design$variables[[var]])
       is_continua <- any(classe_var %in% c("numeric", "integer", "double"))
 

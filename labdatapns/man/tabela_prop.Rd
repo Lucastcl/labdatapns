@@ -5,15 +5,15 @@
 \title{Calcula proporção populacional da variável de interesse}
 \usage{
 tabela_prop(
-  variaveis,
+  codigo,
   filtro = NULL,
   dominio = NULL,
   desagregar = NULL,
-  derivacao = FALSE
+  filtro_binario = FALSE
 )
 }
 \arguments{
-\item{variaveis}{Variável ou expressão de variáveis (com \code{+}) para o numerador da proporção.}
+\item{codigo}{Variável ou expressão de variáveis (com \code{+}) para o numerador da proporção.}
 
 \item{filtro}{Expressão lógica com as condições para o numerador.}
 
@@ -21,7 +21,7 @@ tabela_prop(
 
 \item{desagregar}{Variáveis adicionais para desagregação.}
 
-\item{derivacao}{Quando TRUE, cria uma variável categórica auxiliar com dois rótulos para evitar perdas por \code{NA}.}
+\item{filtro_binario}{Quando TRUE, cria uma variável categórica auxiliar com dois rótulos para evitar perdas por \code{NA}.}
 }
 \value{
 Um data frame com proporções, erro padrão, coeficiente de variação e intervalos de confiança.
@@ -30,5 +30,5 @@ Um data frame com proporções, erro padrão, coeficiente de variação e interv
 Esta função calcula a proporção populacional de uma variável categórica,
 com base no total populacional estimado pela variável V0015. Para filtros
 compostos com possíveis \code{NA}, pode-se ativar a criação de uma variável
-indicadora auxiliar com \code{derivacao = TRUE}.
+indicadora auxiliar com \code{filtro_binario = TRUE}.
 }
