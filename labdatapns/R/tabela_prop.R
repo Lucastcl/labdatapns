@@ -1,26 +1,25 @@
 #' Calcula proporção populacional da variável de interesse
-#'
+#
 #' Esta função calcula a proporção populacional de uma variável categórica,
 #' com base no total populacional estimado pela variável V0015. Para filtros
 #' compostos com possíveis `NA`, pode-se ativar a criação de uma variável
 #' indicadora auxiliar com `filtro_binario = TRUE`.
-#'
+#
 #' @param codigo Variável ou expressão de variáveis (com `+`) para o numerador da proporção.
 #' @param filtro Expressão lógica com as condições para o numerador.
-#' @param dominio Variável de domínio para desagregação ("UF" ou "V0026").
 #' @param desagregar Variáveis adicionais para desagregação.
 #' @param filtro_binario Quando TRUE, cria uma variável categórica auxiliar com dois rótulos para evitar perdas por `NA`.
-#'
+#
 #' @return Um data frame com proporções, erro padrão, coeficiente de variação e intervalos de confiança.
 #' @export
 
-tabela_prop <- function(codigo, filtro = NULL, dominio = NULL, desagregar = NULL, filtro_binario = FALSE) {
+tabela_prop <- function(codigo, filtro = NULL, desagregar = NULL, filtro_binario = FALSE) {
   library(dplyr)
   library(rlang)
 
   codigo_expr <- enexpr(codigo)
   filtro_expr <- enquo(filtro)
-  dominio_expr <- enexpr(dominio)
+  # dominio_expr <- enexpr(dominio) # Removido
   desagregar_expr <- enexpr(desagregar)
 
   extrair_nomes <- function(expr) {
@@ -64,10 +63,11 @@ tabela_prop <- function(codigo, filtro = NULL, dominio = NULL, desagregar = NULL
   var_nome <- if (filtro_binario) "grupo_filtro" else codigo_chr[[1]]
   desagregar_chr <- if (!quo_is_null(enquo(desagregar))) extrair_nomes(desagregar_expr) else character(0)
 
+  # Chamada para tabela ajustada para remover o argumento 'dominio'
   num <- tabela(
     codigo = !!codigo_expr,
     filtro = !!filtro_expr,
-    dominio = !!dominio_expr,
+    # dominio = !!dominio_expr, # Removido
     desagregar = !!desagregar_expr,
     metrica = total,
     filtro_binario = filtro_binario
@@ -78,10 +78,11 @@ tabela_prop <- function(codigo, filtro = NULL, dominio = NULL, desagregar = NULL
     filtro_idade_expr <- new_quosure(filtro_idade_expr)
   }
 
+  # Chamada para tabela ajustada para remover o argumento 'dominio'
   denom <- tabela(
     codigo = V0015,
     filtro = !!filtro_idade_expr,
-    dominio = !!dominio_expr,
+    # dominio = !!dominio_expr, # Removido
     desagregar = !!desagregar_expr,
     metrica = total
   )
@@ -91,24 +92,24 @@ tabela_prop <- function(codigo, filtro = NULL, dominio = NULL, desagregar = NULL
   total_denom_col <- "total_V0015"
   cv_denom_col <- "cv_V0015"
 
-  colunas_join <- c()
-  if ("dominio" %in% names(num)) {
-    colunas_join <- c(colunas_join, "dominio")
-  }
-  colunas_join <- c(colunas_join, desagregar_chr)
+  # Colunas de join ajustadas, pois 'dominio' não existe mais na saída de 'tabela'
+  colunas_join <- desagregar_chr
+
+  # A verificação 'if ("dominio" %in% names(num))' foi removida
 
   base <- left_join(num, denom, by = colunas_join)
 
+  # A renomeação de 'categoria.x' pode ainda ser necessária dependendo da saída de 'tabela'
   if ("categoria.x" %in% names(base)) {
     base <- base %>% rename(categoria = categoria.x)
-  } else {
+  } else if (!("categoria" %in% names(base))) {
+    # Adiciona coluna 'categoria' se não existir (caso sem desagregação e tabela retorne sem ela)
     base <- base %>% mutate(categoria = "Total")
   }
 
-  if ("dominio" %in% names(base)) {
-    base <- base %>% rename(UF = dominio)
-  }
+  # A renomeação 'if ("dominio" %in% names(base))' foi removida
 
+  # A seleção final foi ajustada para não incluir 'UF' (derivado de 'dominio')
   base <- base %>%
     mutate(
       prop = !!sym(total_num_col) / !!sym(total_denom_col),
@@ -119,7 +120,7 @@ tabela_prop <- function(codigo, filtro = NULL, dominio = NULL, desagregar = NULL
       ic_inferior = prop - 1.96 * se_prop,
       ic_superior = prop + 1.96 * se_prop
     ) %>%
-    select(all_of(c(if ("UF" %in% names(base)) "UF", desagregar_chr)), categoria, prop, cv_prop, ic_inferior, ic_superior)
+    select(all_of(c(desagregar_chr)), categoria, prop, cv_prop, ic_inferior, ic_superior)
 
   return(base)
 }
