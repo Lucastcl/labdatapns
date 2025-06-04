@@ -20,6 +20,7 @@ tabela <- function(codigo, filtro = NULL, metrica = NULL, desagregar = NULL, fil
     library(rlang)
     library(survey)
 
+    # --- Funções auxiliares da sua versão ---
     extrair_nomes <- function(expr) {
       if (is_call(expr, "+")) {
         unlist(lapply(call_args(expr), extrair_nomes))
@@ -57,51 +58,108 @@ tabela <- function(codigo, filtro = NULL, metrica = NULL, desagregar = NULL, fil
       return(NULL)
     }
 
+    # --- Início da lógica principal da função (da sua versão) ---
     codigo_expr <- enexpr(codigo)
     codigo_chr <- extrair_nomes(codigo_expr)
 
     metrica_expr <- enexpr(metrica)
     desagregar_expr <- enexpr(desagregar)
-    filtro_expr <- enquo(filtro)
+    filtro_expr <- enquo(filtro) # Usar o filtro_expr original aqui
 
     metrica_chr <- if (!quo_is_null(enquo(metrica))) as_string(metrica_expr) else "total"
     metrica_chr <- match.arg(metrica_chr, choices = c("total", "media", "prop", "prop_pop"))
 
     desagregar_chr <- if (!quo_is_null(enquo(desagregar))) extrair_nomes(desagregar_expr) else character(0)
 
-    # A chamada para tabela_prop foi ajustada para remover o argumento 'dominio'
+    # Delegação para tabela_prop (da sua versão)
     if (metrica_chr == "prop_pop") {
       resultado <- tabela_prop(
         codigo = !!codigo_expr,
         filtro = !!filtro_expr,
-        # dominio = !!dominio_expr, # Argumento removido
         desagregar = !!desagregar_expr,
         filtro_binario = filtro_binario
       )
       return(resultado)
     }
 
+    # Bloco filtro_binario (da sua versão, com rótulos dinâmicos inseridos)
     if (!rlang::quo_is_null(filtro_expr) && filtro_binario) {
-      filtro_base_expr <- extrair_idade_filtro(filtro_expr)
+
+      # --- INÍCIO DA LÓGICA DE RÓTULOS DINÂMICOS ---
+      extrair_valores_do_codigo <- function(expr, var_codigo) {
+        if (is_call(expr)) {
+          if (call_name(expr) %in% c("==", "%in%") && is_symbol(expr[[2]]) && as_string(expr[[2]]) == var_codigo) {
+            return(as.character(eval(expr[[3]])))
+          }
+          results <- lapply(call_args(expr), extrair_valores_do_codigo, var_codigo)
+          return(unique(unlist(results)))
+        }
+        return(NULL)
+      }
+
+      extrair_vars_condicionais <- function(expr) {
+        vars <- c()
+        recursive_walk <- function(e) {
+          if (is_call(e, c("==", "%in%", ">=", "<=", ">", "<", "!="))) {
+            lhs <- e[[2]]
+            if (is_symbol(lhs)) {
+              vars <<- c(vars, as_string(lhs))
+            }
+          } else if (is_call(e)) {
+            lapply(call_args(e), recursive_walk)
+          }
+        }
+        recursive_walk(expr)
+        return(unique(vars[!vars %in% "idade"]))
+      }
+
+      categorias_pertence_main <- extrair_valores_do_codigo(get_expr(filtro_expr), codigo_chr[1])
+      label_pertence <- paste(na.omit(categorias_pertence_main), collapse = " ou ")
+
+      vars_no_filtro <- extrair_vars_condicionais(get_expr(filtro_expr))
+
+      todas_categorias_nao_pertence <- lapply(vars_no_filtro, function(var_name) {
+        tryCatch({
+          valores_usados <- extrair_valores_do_codigo(get_expr(filtro_expr), var_name)
+          ano_pesquisa <- unique(dados_pns_design$variables$ano)[1] # Assume 'ano' existe
+          doc_obj <- documentacao_codigo(var_name, ano = ano_pesquisa) # Assume documentacao_codigo existe
+          todas_categorias_var <- doc_obj$categorias$Resposta
+          todas_categorias_var <- todas_categorias_var[todas_categorias_var != "Ignorado"]
+          setdiff(todas_categorias_var, valores_usados)
+        }, error = function(e) NULL)
+      })
+
+      label_nao_pertence <- paste(unique(unlist(todas_categorias_nao_pertence)), collapse = " ou ")
+
+      if (nchar(label_pertence) == 0) label_pertence <- "Grupo do filtro" # Fallback
+      if (nchar(label_nao_pertence) == 0) label_nao_pertence <- "Grupo fora do filtro" # Fallback
+      # --- FIM DA LÓGICA DE RÓTULOS DINÂMICOS ---
+
+      # Lógica original da sua função para filtro_base_expr, etc.
+      filtro_base_expr <- extrair_idade_filtro(filtro_expr) # Usa o filtro_expr original
       filtro_base_expr <- if (!is.null(filtro_base_expr)) new_quosure(filtro_base_expr) else quo(TRUE)
 
       dados_pns_design$variables <- dados_pns_design$variables %>%
         mutate(grupo_filtro = factor(
-          ifelse(!!rlang::get_expr(filtro_expr), 1, 0),
+          ifelse(!!rlang::get_expr(filtro_expr), 1, 0), # Usa o filtro_expr original para definir os grupos
           levels = c(1, 0),
-          labels = c("Pertence ao grupo do filtro", "Não pertence ao grupo do filtro")
+          labels = c(label_pertence, label_nao_pertence) # <<< RÓTULOS DINÂMICOS APLICADOS AQUI
         ))
 
       codigo_chr <- "grupo_filtro"
-      filtro_expr <- filtro_base_expr
+      filtro_expr <- filtro_base_expr # filtro_expr é atualizado para a próxima etapa de subsetting
     }
 
+    # Criação de dados_filtrados (da sua versão)
     dados_filtrados <- if (!rlang::quo_is_null(filtro_expr)) {
+      # Se filtro_binario foi TRUE, filtro_expr aqui é filtro_base_expr
+      # Se filtro_binario foi FALSE, filtro_expr aqui é o filtro original
       subset(dados_pns_design, rlang::eval_tidy(filtro_expr, data = dados_pns_design$variables))
     } else {
       dados_pns_design
     }
 
+    # Lógica de cálculo (da sua versão)
     resultados_final <- lapply(codigo_chr, function(var) {
       classe_var <- class(dados_pns_design$variables[[var]])
       is_continua <- any(classe_var %in% c("numeric", "integer", "double"))
@@ -118,7 +176,6 @@ tabela <- function(codigo, filtro = NULL, metrica = NULL, desagregar = NULL, fil
           subset(dados_filtrados, eval(parse_expr(filtro_extra), envir = dados_filtrados$variables))
         } else dados_filtrados
 
-        # A lógica agora sempre segue o caminho 'dominio == "nenhum"'
         formula_est <- as.formula(paste0("~", var))
         est <- estimador(formula_est, dados_sub)
         intervalo <- confint(est)
@@ -142,8 +199,6 @@ tabela <- function(codigo, filtro = NULL, metrica = NULL, desagregar = NULL, fil
         resultado <- resultado[resultado$metrica != 0 & resultado$categoria != "Ignorado", ]
         rownames(resultado) <- NULL
         return(resultado)
-
-        # O bloco 'else' que tratava domínios diferentes de "nenhum" foi removido.
       }
 
       if (length(desagregar_chr) == 0) {
@@ -152,7 +207,6 @@ tabela <- function(codigo, filtro = NULL, metrica = NULL, desagregar = NULL, fil
         lista_niveis <- lapply(desagregar_chr, function(v) unique(na.omit(dados_pns_design$variables[[v]])))
         names(lista_niveis) <- desagregar_chr
         combinacoes <- expand.grid(lista_niveis, stringsAsFactors = FALSE)
-
         resultados_lista <- apply(combinacoes, 1, function(comb) {
           filtros <- mapply(function(var, val) {
             paste0(var, " == ", if (is.character(val)) paste0("\"", val, "\"") else val)
@@ -165,7 +219,6 @@ tabela <- function(codigo, filtro = NULL, metrica = NULL, desagregar = NULL, fil
           }
           return(tabela_filtrada)
         })
-
         resultado <- bind_rows(purrr::compact(resultados_lista))
       }
 
@@ -178,7 +231,6 @@ tabela <- function(codigo, filtro = NULL, metrica = NULL, desagregar = NULL, fil
       return(resultado)
     })
 
-    # O join final foi ajustado para remover a coluna 'dominio'
     final <- purrr::reduce(resultados_final, left_join, by = c("categoria", desagregar_chr))
     rownames(final) <- NULL
 

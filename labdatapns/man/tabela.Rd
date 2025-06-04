@@ -7,7 +7,6 @@
 tabela(
   codigo,
   filtro = NULL,
-  dominio = NULL,
   metrica = NULL,
   desagregar = NULL,
   filtro_binario = FALSE
@@ -17,8 +16,6 @@ tabela(
 \item{codigo}{Variável ou variáveis a serem analisadas (símbolos com ou sem uso de +).}
 
 \item{filtro}{Expressão lógica para filtrar os dados.}
-
-\item{dominio}{Domínio para desagregação: "nenhum", "UF" ou "V0026".}
 
 \item{metrica}{Tipo de métrica: "total", "media", "prop" ou "prop_pop".}
 

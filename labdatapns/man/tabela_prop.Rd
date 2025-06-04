@@ -2,22 +2,18 @@
 % Please edit documentation in R/tabela_prop.R
 \name{tabela_prop}
 \alias{tabela_prop}
-\title{Calcula proporção populacional da variável de interesse}
+\title{Calcula proporção populacional da variável de interesse
+Esta função calcula a proporção populacional de uma variável categórica,
+com base no total populacional estimado pela variável V0015. Para filtros
+compostos com possíveis \code{NA}, pode-se ativar a criação de uma variável
+indicadora auxiliar com \code{filtro_binario = TRUE}.}
 \usage{
-tabela_prop(
-  codigo,
-  filtro = NULL,
-  dominio = NULL,
-  desagregar = NULL,
-  filtro_binario = FALSE
-)
+tabela_prop(codigo, filtro = NULL, desagregar = NULL, filtro_binario = FALSE)
 }
 \arguments{
 \item{codigo}{Variável ou expressão de variáveis (com \code{+}) para o numerador da proporção.}
 
 \item{filtro}{Expressão lógica com as condições para o numerador.}
-
-\item{dominio}{Variável de domínio para desagregação ("UF" ou "V0026").}
 
 \item{desagregar}{Variáveis adicionais para desagregação.}
 
@@ -27,6 +23,7 @@ tabela_prop(
 Um data frame com proporções, erro padrão, coeficiente de variação e intervalos de confiança.
 }
 \description{
+Calcula proporção populacional da variável de interesse
 Esta função calcula a proporção populacional de uma variável categórica,
 com base no total populacional estimado pela variável V0015. Para filtros
 compostos com possíveis \code{NA}, pode-se ativar a criação de uma variável
