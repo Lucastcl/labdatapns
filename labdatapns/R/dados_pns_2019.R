@@ -137,8 +137,8 @@ dados_pns <- function(ano, vars = c(), global = TRUE) {
     )
 
   # Cálculo do IMC
-  altura <- if (ano == 2019) dados_pns_design$variables$W00203 else dados_pns_design$variables$W00203
-  peso   <- if (ano == 2019) dados_pns_design$variables$W00103 else dados_pns_design$variables$W00103
+  altura <- if (ano == 2019) dados_pns_design$variables$P00404 else dados_pns_design$variables$P00401
+  peso   <- if (ano == 2019) dados_pns_design$variables$P00104 else dados_pns_design$variables$P00101
 
   dados_pns_design$variables$imc_valor <- ifelse(
     !is.na(altura) & !is.na(peso) & altura > 0,
