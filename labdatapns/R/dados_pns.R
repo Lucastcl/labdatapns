@@ -44,7 +44,7 @@ dados_pns <- function(ano, vars = c(), global = TRUE) {
 
   # Variáveis obrigatórias por ano
   vars_ano <- if (ano == 2019) {
-    c("P00404", "P00104", "VDF004", "V0025A", "P04801")
+    c("P00404", "P00104", "VDF004", "V0025A", "P04801","W00203","W00103")
   } else {
     c("P00401", "P00101", "V0025", "P048")
   }
