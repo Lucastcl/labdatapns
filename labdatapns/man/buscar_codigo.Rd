@@ -2,20 +2,22 @@
 % Please edit documentation in R/buscar_codigo.R
 \name{buscar_codigo}
 \alias{buscar_codigo}
-\title{Buscar variáveis no dicionário da PNS}
+\title{Buscar variáveis no dicionário da PNS de forma inteligente}
 \usage{
-buscar_codigo(palavra, ignore_case = TRUE, ano = NULL)
+buscar_codigo(termo, ano = NULL)
 }
 \arguments{
-\item{palavra}{Palavra ou expressão regular a ser buscada nas perguntas.}
-
-\item{ignore_case}{Lógico. Se \code{TRUE}, a busca ignora maiúsculas e minúsculas.}
+\item{termo}{O termo a ser buscado. Pode ser um código de variável (ex: "C00101")
+ou uma palavra-chave (ex: "alimentacao").}
 
 \item{ano}{Opcional. Pode ser 2013, 2019 ou \code{NULL} para ambos.}
 }
 \value{
-Um data frame com as colunas \code{codigo}, \code{pergunta} e \code{Ano} das variáveis que correspondem à busca.
+Um data frame com as colunas \code{codigo}, \code{pergunta} e \code{Ano} das
+variáveis que correspondem à busca. Retorna um data frame vazio se nada for encontrado.
 }
 \description{
-Filtra o dicionário da PNS procurando por uma palavra-chave no texto da pergunta.
+Filtra o dicionário da PNS procurando por um código de variável ou por uma
+palavra-chave no texto da pergunta. A busca por palavra-chave ignora
+acentos e maiúsculas/minúsculas.
 }
