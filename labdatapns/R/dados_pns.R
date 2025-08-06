@@ -44,7 +44,7 @@ dados_pns <- function(ano, vars = c(), global = TRUE) {
 
   # Variáveis obrigatórias por ano
   vars_ano <- if (ano == 2019) {
-    c("P00404", "P00104", "VDF004", "V0025A", "P04801","W00203","W00103")
+    c("P00404", "P00104", "VDF004", "V0025A", "P04801")
   } else {
     c("P00401", "P00101", "V0025", "P048")
   }
@@ -72,9 +72,10 @@ dados_pns <- function(ano, vars = c(), global = TRUE) {
     tipos_unicos <- unique(tipos)
 
     if (length(tipos_unicos) == 1) {
+      tipo <- tipos_unicos[1]
       return(list(
-        selecionado = tipos_unicos == "selecionado",
-        antropometria = tipos_unicos == "antropometria"
+        selecionado = tipo == "selecionado",
+        antropometria = tipo == "antropometria"
       ))
     } else {
       conflitos <- split(vars_usuario, tipos)
@@ -104,6 +105,22 @@ dados_pns <- function(ano, vars = c(), global = TRUE) {
     selected = selecionado,
     anthropometry = antropometria
   )
+  dados_pns_design$variables <- dados_pns_design$variables %>%
+    mutate(
+      across(where(is.character), ~ replace_na(., "Não Aplicável")),
+      across(where(is.factor), ~ {
+        x <- .
+        if (!"Não Aplicável" %in% levels(x)) {
+          levels(x) <- c(levels(x), "Não Aplicável")
+        }
+        x[is.na(x)] <- "Não Aplicável"
+        x
+      })
+    )
+
+
+
+
 
   # Criação de variáveis derivadas
   dados_pns_design$variables <- dados_pns_design$variables %>%
@@ -137,8 +154,8 @@ dados_pns <- function(ano, vars = c(), global = TRUE) {
     )
 
   # Cálculo do IMC
-  altura <- if (ano == 2019) dados_pns_design$variables$W00203 else dados_pns_design$variables$W00203
-  peso   <- if (ano == 2019) dados_pns_design$variables$W00103 else dados_pns_design$variables$W00103
+  altura <- if (ano == 2019) dados_pns_design$variables$P00404 else dados_pns_design$variables$P00401
+  peso   <- if (ano == 2019) dados_pns_design$variables$P00104 else dados_pns_design$variables$P00101
 
   dados_pns_design$variables$imc_valor <- ifelse(
     !is.na(altura) & !is.na(peso) & altura > 0,
@@ -176,4 +193,10 @@ dados_pns <- function(ano, vars = c(), global = TRUE) {
   } else {
     return(list(dados_pns_design = dados_pns_design, vars = vars))
   }
+
+
+
+
+
+
 }
